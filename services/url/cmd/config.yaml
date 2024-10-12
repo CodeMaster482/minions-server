@@ -1,0 +1,14 @@
+# config.yaml
+# Адрес и порт для сервера (например, ":8080")
+address: ":8080"
+# Таймаут для чтения запроса (например, "15s" для 15 секунд)
+timeout: 15s
+# Таймаут простоя соединения (например, "60s" для 60 секунд)
+idle_timeout: 60s
+# Таймаут для чтения заголовков запроса (например, "5s" для 5 секунд)
+read_header_timeout: 5s
+# API-ключ для Kaspersky Threat Intelligence Portal
+# Замените "YOUR_KASPERSKY_API_KEY" на ваш реальный ключ
+kaspersky_api_key: "YOUR_KASPERSKY_API_KEY"
+# Формат логирования: "json" или "text"
+log_format: "json"
