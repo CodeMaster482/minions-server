@@ -1,20 +1,20 @@
 package http
 
 import (
+	"encoding/json"
 	"fmt"
+	"github.com/CodeMaster482/minions-server/services/url/internal/scan/models"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/url"
 )
 
-// Handler содержит зависимости для обработки запросов
 type Handler struct {
 	apiKey string
 	logger *slog.Logger
 }
 
-// New создаёт новый экземпляр Handler
 func New(apiKey string, logger *slog.Logger) *Handler {
 	return &Handler{
 		apiKey: apiKey,
@@ -22,9 +22,8 @@ func New(apiKey string, logger *slog.Logger) *Handler {
 	}
 }
 
-// Url обрабатывает запросы на проверку URL через API Kaspersky
-func (h *Handler) Url(w http.ResponseWriter, r *http.Request) {
-	// Создаем контекст для логгера с информацией о запросе
+// Domain обрабатывает запросы на проверку домена через API
+func (h *Handler) Domain(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	logger := h.logger.With(
 		slog.String("method", r.Method),
@@ -32,18 +31,16 @@ func (h *Handler) Url(w http.ResponseWriter, r *http.Request) {
 		slog.String("remote_addr", r.RemoteAddr),
 	)
 
-	// Извлекаем веб-адрес из параметра запроса
-	webAddress := r.URL.Query().Get("request")
-	if webAddress == "" {
+	// Извлекаем домен из параметра запроса
+	domain := r.URL.Query().Get("request")
+	if domain == "" {
 		http.Error(w, "Missing 'request' query parameter", http.StatusBadRequest)
 		logger.Error("Missing 'request' query parameter")
 		return
 	}
 
-	// Формируем URL для запроса к API Kaspersky
-	apiURL := fmt.Sprintf("https://opentip.kaspersky.com/api/v1/search/url?request=%s", url.QueryEscape(webAddress))
+	apiURL := fmt.Sprintf("https://opentip.kaspersky.com/api/v1/search/domain?request=%s", url.QueryEscape(domain))
 
-	// Создаём новый HTTP-запрос с контекстом
 	req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
 	if err != nil {
 		http.Error(w, "Failed to create request", http.StatusInternalServerError)
@@ -54,7 +51,7 @@ func (h *Handler) Url(w http.ResponseWriter, r *http.Request) {
 	// Устанавливаем заголовок с API-ключом
 	req.Header.Set("x-api-key", h.apiKey)
 
-	// Отправляем запрос к API Kaspersky
+	// Отправляем запрос к API
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -64,22 +61,70 @@ func (h *Handler) Url(w http.ResponseWriter, r *http.Request) {
 	}
 	defer resp.Body.Close()
 
-	// Проверяем статус код ответа
-	if resp.StatusCode != http.StatusOK {
-		http.Error(w, "Kaspersky API returned error", http.StatusInternalServerError)
-		logger.Error("Kaspersky API returned error", slog.Int("status_code", resp.StatusCode))
+	switch resp.StatusCode {
+	case http.StatusOK:
+		// Всё прошло хорошо, парсим ответ
+	case http.StatusBadRequest:
+		http.Error(w, "Bad Request: Incorrect query.", http.StatusBadRequest)
+		logger.Error("Bad Request from Kaspersky API")
+		return
+	case http.StatusUnauthorized:
+		http.Error(w, "Unauthorized: Authentication failed.", http.StatusBadRequest)
+		logger.Error("Unauthorized: Authentication failed")
+		return
+	case http.StatusForbidden:
+		http.Error(w, "Forbidden: Quota or request limit exceeded.", http.StatusBadRequest)
+		logger.Error("Forbidden: Quota or request limit exceeded")
+		return
+	case http.StatusNotFound:
+		http.Error(w, "Not Found: Lookup results not found.", http.StatusNotFound)
+		logger.Error("Not Found: Lookup results not found")
+		return
+	default:
+		http.Error(w, "Kaspersky API returned unexpected error", http.StatusInternalServerError)
+		logger.Error("Kaspersky API returned unexpected error", slog.Int("status_code", resp.StatusCode))
 		return
 	}
 
-	// Устанавливаем заголовок Content-Type
-	w.Header().Set("Content-Type", "application/json")
-
-	// Копируем тело ответа API Kaspersky в ответ клиенту
-	if _, err := io.Copy(w, resp.Body); err != nil {
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
 		http.Error(w, "Failed to read response from Kaspersky API", http.StatusInternalServerError)
 		logger.Error("Failed to read response from Kaspersky API", slog.Any("error", err))
 		return
 	}
 
-	logger.Info("Successfully processed request", slog.String("web_address", webAddress))
+	var apiResponse models.ResponseFromAPI
+	if err := json.Unmarshal(body, &apiResponse); err != nil {
+		http.Error(w, "Failed to parse response from Kaspersky API", http.StatusInternalServerError)
+		logger.Error("Failed to parse response from Kaspersky API", slog.Any("error", err))
+		return
+	}
+
+	// Определяем цвет на основе значения Zone
+	var color string
+	switch apiResponse.Zone {
+	case "Red", "Orange", "Yellow":
+		color = "Red"
+	case "Grey":
+		color = "Grey"
+	case "Green":
+		color = "Green"
+	default:
+		color = "unknown"
+		logger.Warn("Unknown zone value", slog.String("zone", apiResponse.Zone))
+	}
+
+	response := models.ResponseToClient{
+		Color: color,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		logger.Error("Failed to encode response", slog.Any("error", err))
+		return
+	}
+
+	logger.Info("Successfully processed request", slog.String("domain", domain), slog.String("color", color))
 }

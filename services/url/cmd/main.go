@@ -22,7 +22,7 @@ func main() {
 }
 
 func run() error {
-	cfg, err := LoadConfig("config.yaml")
+	cfg, err := LoadConfig("services/url/cmd/config.yaml")
 	if err != nil {
 		slog.Error("config_load_error",
 			slog.String("message", fmt.Sprintf("Failed to load config: %v", err)),
@@ -53,7 +53,7 @@ func run() error {
 		loggingMiddleware(logger),
 	)
 
-	r.HandleFunc("/scan/url", handlerAPI.Url).Methods(http.MethodGet, http.MethodOptions)
+	r.HandleFunc("/scan/domain", handlerAPI.Domain).Methods(http.MethodGet, http.MethodOptions)
 
 	r.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Not Found", http.StatusNotFound)
