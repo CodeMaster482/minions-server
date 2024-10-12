@@ -25,5 +25,5 @@ go.work.sum
 *.bin
 *.tmp
 *.log
-#*.yaml
-#*.yml
+*.yaml
+*.yml
