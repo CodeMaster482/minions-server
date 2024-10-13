@@ -32,7 +32,7 @@ func main() {
 }
 
 func run() error {
-	cfg, err := LoadConfig("services/url/cmd/config.yaml")
+	cfg, err := LoadConfig("services/scan/cmd/config.yaml")
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 		return err
