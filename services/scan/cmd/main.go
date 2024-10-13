@@ -3,8 +3,9 @@ package main
 import (
 	"context"
 	"errors"
+	"flag"
+	"fmt"
 	"io"
-	"log"
 	"log/slog"
 	"net/http"
 	"os"
@@ -32,9 +33,15 @@ func main() {
 }
 
 func run() error {
-	cfg, err := LoadConfig("services/scan/cmd/config.yaml")
+	configPath := flag.String("c", "services/scan/cmd/config.yaml", "Путь к файлу конфигурации")
+	flag.Parse()
+
+	cfg, err := LoadConfig(*configPath)
 	if err != nil {
-		log.Fatalf("Failed to load config: %v", err)
+		slog.Error("config_load_error",
+			slog.String("message", fmt.Sprintf("Failed to load config: %v", err)),
+			slog.Any("error", err),
+		)
 		return err
 	}
 
