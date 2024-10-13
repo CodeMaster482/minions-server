@@ -15,6 +15,7 @@ type Config struct {
 	ReadHeaderTimeout time.Duration `yaml:"read_header_timeout"`
 	KasperskyAPIKey   string        `yaml:"kaspersky_api_key"`
 	LogFormat         string        `yaml:"log_format"`
+	LogFile           string        `yaml:"log_file"` // Параметр для пути к файлу логов
 }
 
 // LoadConfig загружает конфигурацию из YAML-файла и устанавливает дефолтные значения, если они не заданы
@@ -25,6 +26,7 @@ func LoadConfig(filename string) (*Config, error) {
 		IdleTimeout:       60 * time.Second,
 		ReadHeaderTimeout: 5 * time.Second,
 		LogFormat:         "json",
+		LogFile:           "", // По умолчанию пустой, значит логи будут только в консоль
 	}
 
 	file, err := os.Open(filename)
@@ -43,6 +45,7 @@ func LoadConfig(filename string) (*Config, error) {
 		return nil, err
 	}
 
+	// Устанавливаем значения по умолчанию, если они не заданы в конфиге
 	if cfg.Address == "" {
 		cfg.Address = ":8080"
 	}

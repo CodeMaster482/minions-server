@@ -12,3 +12,5 @@ read_header_timeout: 5s
 kaspersky_api_key: "YOUR_KASPERSKY_API_KEY"
 # Формат логирования: "json" или "text"
 log_format: "json"
+# Путь до файла с логами
+log_file: "/var/log/minions-server.log"

@@ -3,7 +3,8 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
+	"io"
+	"log"
 	"log/slog"
 	"net/http"
 	"os"
@@ -11,10 +12,19 @@ import (
 	"syscall"
 	"time"
 
-	scanHandlers "github.com/CodeMaster482/minions-server/services/url/internal/scan/delivery/http"
 	"github.com/gorilla/mux"
+	httpSwagger "github.com/swaggo/http-swagger"
+	"gopkg.in/natefinch/lumberjack.v2"
+
+	_ "github.com/CodeMaster482/minions-server/docs"
+	scanHandlers "github.com/CodeMaster482/minions-server/services/scan/internal/scan/delivery/http"
 )
 
+// @title Minions API
+// @description API server for Minions.
+
+// @contact.name Dima
+// @contact.url http://t.me/BelozerovD
 func main() {
 	if err := run(); err != nil {
 		os.Exit(1)
@@ -24,26 +34,41 @@ func main() {
 func run() error {
 	cfg, err := LoadConfig("services/url/cmd/config.yaml")
 	if err != nil {
-		slog.Error("config_load_error",
-			slog.String("message", fmt.Sprintf("Failed to load config: %v", err)),
-			slog.Any("error", err),
-		)
+		log.Fatalf("Failed to load config: %v", err)
 		return err
 	}
 
-	handlerOptions := &slog.HandlerOptions{
+	var handlerOptions = &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	}
+
 	var logger *slog.Logger
+	var writers []io.Writer
+
+	writers = append(writers, os.Stdout)
+
+	if cfg.LogFile != "" {
+		lumberjackLogger := &lumberjack.Logger{
+			Filename:   cfg.LogFile,
+			MaxSize:    100,
+			MaxBackups: 0,
+			MaxAge:     14,
+			Compress:   true,
+		}
+		writers = append(writers, lumberjackLogger)
+	}
+
+	multiWriter := io.MultiWriter(writers...)
+
 	if cfg.LogFormat == "json" {
-		logger = slog.New(slog.NewJSONHandler(os.Stdout, handlerOptions))
+		logger = slog.New(slog.NewJSONHandler(multiWriter, handlerOptions))
 	} else {
-		logger = slog.New(slog.NewTextHandler(os.Stdout, handlerOptions))
+		logger = slog.New(slog.NewTextHandler(multiWriter, handlerOptions))
 	}
 
 	logger.Info("Starting URL service")
 
-	handlerAPI := scanHandlers.New(cfg.KasperskyAPIKey, logger)
+	scan := scanHandlers.New(cfg.KasperskyAPIKey, logger)
 
 	r := mux.NewRouter().PathPrefix("/api").Subrouter()
 
@@ -53,7 +78,13 @@ func run() error {
 		loggingMiddleware(logger),
 	)
 
-	r.HandleFunc("/scan/domain", handlerAPI.Domain).Methods(http.MethodGet, http.MethodOptions)
+	r.PathPrefix("/swagger/").Handler(httpSwagger.Handler(
+		httpSwagger.DeepLinking(true),
+		httpSwagger.DocExpansion("none"),
+		httpSwagger.DomID("swagger-ui"),
+	))
+
+	r.HandleFunc("/scan/domain", scan.Domain).Methods(http.MethodGet, http.MethodOptions)
 
 	r.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Not Found", http.StatusNotFound)

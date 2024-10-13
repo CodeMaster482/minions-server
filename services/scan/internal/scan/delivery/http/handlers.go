@@ -3,7 +3,7 @@ package http
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/CodeMaster482/minions-server/services/url/internal/scan/models"
+	"github.com/CodeMaster482/minions-server/services/scan/internal/scan/models"
 	"io"
 	"log/slog"
 	"net/http"
@@ -22,7 +22,18 @@ func New(apiKey string, logger *slog.Logger) *Handler {
 	}
 }
 
-// Domain обрабатывает запросы на проверку домена через API
+// @Summary Проверка домена через Kaspersky API
+// @Description Эндпоинт для проверки домена и определения его цвета на основе зоны риска
+// @ID domain-check
+// @Tags Domain
+// @Accept json
+// @Produce json
+// @Param request query string true "Домен для проверки"
+// @Success 200 {object} models.ResponseToClient "Успешная проверка домена. Возможные значения цвета: Red, Green, Grey."
+// @Failure 400 "Некорректный запрос или ошибка в параметрах"
+// @Failure 404 "Результаты поиска не найдены"
+// @Failure 500 "Внутренняя ошибка сервера"
+// @Router /api/scan/domain [get]
 func (h *Handler) Domain(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	logger := h.logger.With(

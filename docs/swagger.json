@@ -1,0 +1,65 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "API server for Minions.",
+        "title": "Minions API",
+        "contact": {
+            "name": "Dima",
+            "url": "http://t.me/BelozerovD"
+        }
+    },
+    "paths": {
+        "/api/scan/domain": {
+            "get": {
+                "description": "Эндпоинт для проверки домена и определения его цвета на основе зоны риска",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Domain"
+                ],
+                "summary": "Проверка домена через Kaspersky API",
+                "operationId": "domain-check",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Домен для проверки",
+                        "name": "request",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Успешная проверка домена. Возможные значения цвета: Red, Green, Grey.",
+                        "schema": {
+                            "$ref": "#/definitions/models.ResponseToClient"
+                        }
+                    },
+                    "400": {
+                        "description": "Некорректный запрос или ошибка в параметрах"
+                    },
+                    "404": {
+                        "description": "Результаты поиска не найдены"
+                    },
+                    "500": {
+                        "description": "Внутренняя ошибка сервера"
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "models.ResponseToClient": {
+            "type": "object",
+            "properties": {
+                "color": {
+                    "type": "string"
+                }
+            }
+        }
+    }
+}
