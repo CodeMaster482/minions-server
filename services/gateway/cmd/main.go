@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/CodeMaster482/minions-server/common"
 	"io"
 	"log/slog"
 	"net/http"
@@ -18,7 +19,8 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 
 	_ "github.com/CodeMaster482/minions-server/docs"
-	scanHandlers "github.com/CodeMaster482/minions-server/services/scan/internal/scan/delivery/http"
+	scanHandlers "github.com/CodeMaster482/minions-server/services/gateway/internal/scan/delivery/http"
+	scanUsecase "github.com/CodeMaster482/minions-server/services/gateway/internal/scan/usecase"
 )
 
 // @title Minions API
@@ -33,7 +35,7 @@ func main() {
 }
 
 func run() error {
-	configPath := flag.String("c", "services/scan/cmd/config.yaml", "Путь к файлу конфигурации")
+	configPath := flag.String("c", "services/gateway/cmd/config.yaml", "Путь к файлу конфигурации")
 	flag.Parse()
 
 	cfg, err := LoadConfig(*configPath)
@@ -75,7 +77,12 @@ func run() error {
 
 	logger.Info("Starting URL service")
 
-	scan := scanHandlers.New(cfg.KasperskyAPIKey, logger)
+	//=================================================================//
+
+	scanUsecase := scanUsecase.New()
+	scan := scanHandlers.New(cfg.KasperskyAPIKey, scanUsecase, logger)
+
+	//=================================================================//
 
 	r := mux.NewRouter().PathPrefix("/api").Subrouter()
 
@@ -91,12 +98,14 @@ func run() error {
 		httpSwagger.DomID("swagger-ui"),
 	))
 
-	r.HandleFunc("/scan/domain", scan.Domain).Methods(http.MethodGet, http.MethodOptions)
+	r.HandleFunc("/scan/uri", scan.DomainIPUrl).Methods(http.MethodGet, http.MethodOptions)
 
 	r.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, "Not Found", http.StatusNotFound)
+		common.RespondWithError(w, http.StatusNotFound, "Not Found")
 		logger.Warn("Not Found", slog.String("url", r.URL.String()))
 	})
+
+	//=================================================================//
 
 	srv := &http.Server{
 		Handler:           r,

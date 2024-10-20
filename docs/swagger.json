@@ -9,9 +9,9 @@
         }
     },
     "paths": {
-        "/api/scan/domain": {
+        "/api/scan/uri": {
             "get": {
-                "description": "Эндпоинт для проверки домена и определения его цвета на основе зоны риска",
+                "description": "Эндпоинт для проверки веб-адреса, IP или домена и получения объединенного ответа с информацией из Kaspersky API.",
                 "consumes": [
                     "application/json"
                 ],
@@ -19,14 +19,15 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Domain"
+                    "Scan"
                 ],
-                "summary": "Проверка домена через Kaspersky API",
+                "summary": "Проверка веб-адреса, IP или домена через Kaspersky API",
                 "operationId": "domain-check",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Домен для проверки",
+                        "example": "www.example.com",
+                        "description": "Веб-адрес, IP или домен для проверки",
                         "name": "request",
                         "in": "query",
                         "required": true
@@ -34,30 +35,416 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Успешная проверка домена. Возможные значения цвета: Red, Green, Grey.",
+                        "description": "Успешная проверка. Возвращается объединенный ответ с информацией.",
                         "schema": {
-                            "$ref": "#/definitions/models.ResponseToClient"
+                            "$ref": "#/definitions/models.ResponseFromAPI"
                         }
                     },
                     "400": {
-                        "description": "Некорректный запрос или ошибка в параметрах"
+                        "description": "Bad Request: Incorrect query.",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
                     },
                     "404": {
-                        "description": "Результаты поиска не найдены"
+                        "description": "Not Found: Lookup results not found.",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
                     },
                     "500": {
-                        "description": "Внутренняя ошибка сервера"
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
                     }
                 }
             }
         }
     },
     "definitions": {
-        "models.ResponseToClient": {
+        "models.AsnInfo": {
             "type": "object",
             "properties": {
-                "color": {
-                    "type": "string"
+                "Description": {
+                    "description": "Описание автономной системы",
+                    "type": "string",
+                    "example": "Example ISP"
+                },
+                "Number": {
+                    "description": "Номер автономной системы",
+                    "type": "string",
+                    "example": "AS12345"
+                }
+            }
+        },
+        "models.CategoryWithZone": {
+            "type": "object",
+            "properties": {
+                "Name": {
+                    "description": "Название категории",
+                    "type": "string",
+                    "example": "Phishing URL"
+                },
+                "Zone": {
+                    "description": "Цвет зоны",
+                    "type": "string",
+                    "example": "Red"
+                }
+            }
+        },
+        "models.DomainGeneralInfo": {
+            "type": "object",
+            "properties": {
+                "Categories": {
+                    "description": "Список категорий",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "[\"Malicious DomainIPUrl\"]"
+                    ]
+                },
+                "CategoriesWithZone": {
+                    "description": "Список категорий с зонами",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.CategoryWithZone"
+                    }
+                },
+                "Domain": {
+                    "description": "Запрошенный домен",
+                    "type": "string",
+                    "example": "maliciousdomain.com"
+                },
+                "FilesCount": {
+                    "description": "Количество известных вредоносных файлов",
+                    "type": "integer",
+                    "example": 5
+                },
+                "HitsCount": {
+                    "description": "Количество IP адресов, связанных с доменом",
+                    "type": "integer",
+                    "example": 10
+                },
+                "Ipv4Count": {
+                    "description": "Количество IPv4 адресов",
+                    "type": "integer",
+                    "example": 2
+                },
+                "UrlsCount": {
+                    "description": "Количество известных вредоносных URL",
+                    "type": "integer",
+                    "example": 3
+                }
+            }
+        },
+        "models.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "Message": {
+                    "description": "Сообщение об ошибке",
+                    "type": "string",
+                    "example": "Invalid input"
+                }
+            }
+        },
+        "models.IpGeneralInfo": {
+            "type": "object",
+            "properties": {
+                "Categories": {
+                    "description": "Список категорий",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "[\"Malicious IP\"]"
+                    ]
+                },
+                "CategoriesWithZone": {
+                    "description": "Список категорий с зонами",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.CategoryWithZone"
+                    }
+                },
+                "CountryCode": {
+                    "description": "Код страны (ISO 3166-1 alpha-2)",
+                    "type": "string",
+                    "example": "US"
+                },
+                "FirstSeen": {
+                    "description": "Дата и время первого появления",
+                    "type": "string",
+                    "example": "2022-01-01T00:00:00Z"
+                },
+                "HitsCount": {
+                    "description": "Количество обращений (популярность)",
+                    "type": "integer",
+                    "example": 15
+                },
+                "Ip": {
+                    "description": "Запрошенный IP адрес",
+                    "type": "string",
+                    "example": "192.0.2.1"
+                },
+                "Status": {
+                    "description": "Статус IP адреса (например, known, reserved)",
+                    "type": "string",
+                    "example": "known"
+                }
+            }
+        },
+        "models.IpWhoIs": {
+            "type": "object",
+            "properties": {
+                "Asn": {
+                    "description": "Информация об автономных системах",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.AsnInfo"
+                    }
+                },
+                "Net": {
+                    "description": "Информация о сети",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.NetInfo"
+                        }
+                    ]
+                }
+            }
+        },
+        "models.NetInfo": {
+            "type": "object",
+            "properties": {
+                "Changed": {
+                    "description": "Дата последнего изменения",
+                    "type": "string",
+                    "example": "2020-01-01T00:00:00Z"
+                },
+                "Created": {
+                    "description": "Дата создания",
+                    "type": "string",
+                    "example": "2019-01-01T00:00:00Z"
+                },
+                "Description": {
+                    "description": "Описание сети",
+                    "type": "string",
+                    "example": "Example network description"
+                },
+                "Name": {
+                    "description": "Название сети",
+                    "type": "string",
+                    "example": "EXAMPLE-NET"
+                },
+                "RangeEnd": {
+                    "description": "Конечный IP адрес диапазона",
+                    "type": "string",
+                    "example": "192.0.2.255"
+                },
+                "RangeStart": {
+                    "description": "Начальный IP адрес диапазона",
+                    "type": "string",
+                    "example": "192.0.2.0"
+                }
+            }
+        },
+        "models.Registrar": {
+            "type": "object",
+            "properties": {
+                "IanaId": {
+                    "description": "IANA ID",
+                    "type": "string",
+                    "example": "1234"
+                },
+                "Info": {
+                    "description": "Название регистратора",
+                    "type": "string",
+                    "example": "Example Registrar Inc."
+                }
+            }
+        },
+        "models.ResponseFromAPI": {
+            "type": "object",
+            "properties": {
+                "Categories": {
+                    "description": "Список категорий",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "[\"Phishing URL\"]"
+                    ]
+                },
+                "CategoriesWithZone": {
+                    "description": "Список категорий с зонами",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.CategoryWithZone"
+                    }
+                },
+                "DomainGeneralInfo": {
+                    "description": "Информация о домене (если применимо)",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.DomainGeneralInfo"
+                        }
+                    ]
+                },
+                "DomainWhoIsInfo": {
+                    "$ref": "#/definitions/models.WhoIsInfo"
+                },
+                "IpGeneralInfo": {
+                    "description": "Информация об IP (если применимо)",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.IpGeneralInfo"
+                        }
+                    ]
+                },
+                "IpWhoIs": {
+                    "description": "WHOIS информация об IP (если применимо)",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.IpWhoIs"
+                        }
+                    ]
+                },
+                "UrlDomainWhoIs": {
+                    "description": "WHOIS информация об URL или домене (если применимо)",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.WhoIsInfo"
+                        }
+                    ]
+                },
+                "UrlGeneralInfo": {
+                    "description": "Информация об URL (если применимо)",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.UrlGeneralInfo"
+                        }
+                    ]
+                },
+                "Zone": {
+                    "description": "Цвет зоны: Red, Green, Grey",
+                    "type": "string",
+                    "example": "Red"
+                }
+            }
+        },
+        "models.UrlGeneralInfo": {
+            "type": "object",
+            "properties": {
+                "Categories": {
+                    "description": "Список категорий",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "[\"Phishing URL\"]"
+                    ]
+                },
+                "CategoriesWithZone": {
+                    "description": "Список категорий с зонами",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.CategoryWithZone"
+                    }
+                },
+                "FilesCount": {
+                    "description": "Количество известных вредоносных файлов",
+                    "type": "integer",
+                    "example": 2
+                },
+                "Host": {
+                    "description": "Хост URL",
+                    "type": "string",
+                    "example": "malicious.example.com"
+                },
+                "Ipv4Count": {
+                    "description": "Количество IPv4 адресов",
+                    "type": "integer",
+                    "example": 1
+                },
+                "Url": {
+                    "description": "Запрошенный URL",
+                    "type": "string",
+                    "example": "http://malicious.example.com"
+                }
+            }
+        },
+        "models.WhoIsInfo": {
+            "type": "object",
+            "properties": {
+                "Contacts": {
+                    "description": "Контактная информация",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "[\"admin@example.com\"]"
+                    ]
+                },
+                "Created": {
+                    "description": "Дата создания",
+                    "type": "string",
+                    "example": "2020-01-01T00:00:00Z"
+                },
+                "DomainName": {
+                    "description": "Имя домена",
+                    "type": "string",
+                    "example": "maliciousdomain.com"
+                },
+                "DomainStatus": {
+                    "description": "Статусы домена",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "[\"active\"]"
+                    ]
+                },
+                "Expires": {
+                    "description": "Дата истечения",
+                    "type": "string",
+                    "example": "2023-01-01T00:00:00Z"
+                },
+                "NameServers": {
+                    "description": "Сервера имен",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "[\"ns1.example.com\"",
+                        " \"ns2.example.com\"]"
+                    ]
+                },
+                "Registrar": {
+                    "description": "Информация о регистраторе",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.Registrar"
+                        }
+                    ]
+                },
+                "RegistrationOrganization": {
+                    "description": "Организация регистрации",
+                    "type": "string",
+                    "example": "Example Corp"
+                },
+                "Updated": {
+                    "description": "Дата последнего обновления",
+                    "type": "string",
+                    "example": "2021-01-01T00:00:00Z"
                 }
             }
         }

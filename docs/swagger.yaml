@@ -1,7 +1,272 @@
 definitions:
-  models.ResponseToClient:
+  models.AsnInfo:
     properties:
-      color:
+      Description:
+        description: Описание автономной системы
+        example: Example ISP
+        type: string
+      Number:
+        description: Номер автономной системы
+        example: AS12345
+        type: string
+    type: object
+  models.CategoryWithZone:
+    properties:
+      Name:
+        description: Название категории
+        example: Phishing URL
+        type: string
+      Zone:
+        description: Цвет зоны
+        example: Red
+        type: string
+    type: object
+  models.DomainGeneralInfo:
+    properties:
+      Categories:
+        description: Список категорий
+        example:
+        - '["Malicious DomainIPUrl"]'
+        items:
+          type: string
+        type: array
+      CategoriesWithZone:
+        description: Список категорий с зонами
+        items:
+          $ref: '#/definitions/models.CategoryWithZone'
+        type: array
+      Domain:
+        description: Запрошенный домен
+        example: maliciousdomain.com
+        type: string
+      FilesCount:
+        description: Количество известных вредоносных файлов
+        example: 5
+        type: integer
+      HitsCount:
+        description: Количество IP адресов, связанных с доменом
+        example: 10
+        type: integer
+      Ipv4Count:
+        description: Количество IPv4 адресов
+        example: 2
+        type: integer
+      UrlsCount:
+        description: Количество известных вредоносных URL
+        example: 3
+        type: integer
+    type: object
+  models.ErrorResponse:
+    properties:
+      Message:
+        description: Сообщение об ошибке
+        example: Invalid input
+        type: string
+    type: object
+  models.IpGeneralInfo:
+    properties:
+      Categories:
+        description: Список категорий
+        example:
+        - '["Malicious IP"]'
+        items:
+          type: string
+        type: array
+      CategoriesWithZone:
+        description: Список категорий с зонами
+        items:
+          $ref: '#/definitions/models.CategoryWithZone'
+        type: array
+      CountryCode:
+        description: Код страны (ISO 3166-1 alpha-2)
+        example: US
+        type: string
+      FirstSeen:
+        description: Дата и время первого появления
+        example: "2022-01-01T00:00:00Z"
+        type: string
+      HitsCount:
+        description: Количество обращений (популярность)
+        example: 15
+        type: integer
+      Ip:
+        description: Запрошенный IP адрес
+        example: 192.0.2.1
+        type: string
+      Status:
+        description: Статус IP адреса (например, known, reserved)
+        example: known
+        type: string
+    type: object
+  models.IpWhoIs:
+    properties:
+      Asn:
+        description: Информация об автономных системах
+        items:
+          $ref: '#/definitions/models.AsnInfo'
+        type: array
+      Net:
+        allOf:
+        - $ref: '#/definitions/models.NetInfo'
+        description: Информация о сети
+    type: object
+  models.NetInfo:
+    properties:
+      Changed:
+        description: Дата последнего изменения
+        example: "2020-01-01T00:00:00Z"
+        type: string
+      Created:
+        description: Дата создания
+        example: "2019-01-01T00:00:00Z"
+        type: string
+      Description:
+        description: Описание сети
+        example: Example network description
+        type: string
+      Name:
+        description: Название сети
+        example: EXAMPLE-NET
+        type: string
+      RangeEnd:
+        description: Конечный IP адрес диапазона
+        example: 192.0.2.255
+        type: string
+      RangeStart:
+        description: Начальный IP адрес диапазона
+        example: 192.0.2.0
+        type: string
+    type: object
+  models.Registrar:
+    properties:
+      IanaId:
+        description: IANA ID
+        example: "1234"
+        type: string
+      Info:
+        description: Название регистратора
+        example: Example Registrar Inc.
+        type: string
+    type: object
+  models.ResponseFromAPI:
+    properties:
+      Categories:
+        description: Список категорий
+        example:
+        - '["Phishing URL"]'
+        items:
+          type: string
+        type: array
+      CategoriesWithZone:
+        description: Список категорий с зонами
+        items:
+          $ref: '#/definitions/models.CategoryWithZone'
+        type: array
+      DomainGeneralInfo:
+        allOf:
+        - $ref: '#/definitions/models.DomainGeneralInfo'
+        description: Информация о домене (если применимо)
+      DomainWhoIsInfo:
+        $ref: '#/definitions/models.WhoIsInfo'
+      IpGeneralInfo:
+        allOf:
+        - $ref: '#/definitions/models.IpGeneralInfo'
+        description: Информация об IP (если применимо)
+      IpWhoIs:
+        allOf:
+        - $ref: '#/definitions/models.IpWhoIs'
+        description: WHOIS информация об IP (если применимо)
+      UrlDomainWhoIs:
+        allOf:
+        - $ref: '#/definitions/models.WhoIsInfo'
+        description: WHOIS информация об URL или домене (если применимо)
+      UrlGeneralInfo:
+        allOf:
+        - $ref: '#/definitions/models.UrlGeneralInfo'
+        description: Информация об URL (если применимо)
+      Zone:
+        description: 'Цвет зоны: Red, Green, Grey'
+        example: Red
+        type: string
+    type: object
+  models.UrlGeneralInfo:
+    properties:
+      Categories:
+        description: Список категорий
+        example:
+        - '["Phishing URL"]'
+        items:
+          type: string
+        type: array
+      CategoriesWithZone:
+        description: Список категорий с зонами
+        items:
+          $ref: '#/definitions/models.CategoryWithZone'
+        type: array
+      FilesCount:
+        description: Количество известных вредоносных файлов
+        example: 2
+        type: integer
+      Host:
+        description: Хост URL
+        example: malicious.example.com
+        type: string
+      Ipv4Count:
+        description: Количество IPv4 адресов
+        example: 1
+        type: integer
+      Url:
+        description: Запрошенный URL
+        example: http://malicious.example.com
+        type: string
+    type: object
+  models.WhoIsInfo:
+    properties:
+      Contacts:
+        description: Контактная информация
+        example:
+        - '["admin@example.com"]'
+        items:
+          type: string
+        type: array
+      Created:
+        description: Дата создания
+        example: "2020-01-01T00:00:00Z"
+        type: string
+      DomainName:
+        description: Имя домена
+        example: maliciousdomain.com
+        type: string
+      DomainStatus:
+        description: Статусы домена
+        example:
+        - '["active"]'
+        items:
+          type: string
+        type: array
+      Expires:
+        description: Дата истечения
+        example: "2023-01-01T00:00:00Z"
+        type: string
+      NameServers:
+        description: Сервера имен
+        example:
+        - '["ns1.example.com"'
+        - ' "ns2.example.com"]'
+        items:
+          type: string
+        type: array
+      Registrar:
+        allOf:
+        - $ref: '#/definitions/models.Registrar'
+        description: Информация о регистраторе
+      RegistrationOrganization:
+        description: Организация регистрации
+        example: Example Corp
+        type: string
+      Updated:
+        description: Дата последнего обновления
+        example: "2021-01-01T00:00:00Z"
         type: string
     type: object
 info:
@@ -11,15 +276,16 @@ info:
   description: API server for Minions.
   title: Minions API
 paths:
-  /api/scan/domain:
+  /api/scan/uri:
     get:
       consumes:
       - application/json
-      description: Эндпоинт для проверки домена и определения его цвета на основе
-        зоны риска
+      description: Эндпоинт для проверки веб-адреса, IP или домена и получения объединенного
+        ответа с информацией из Kaspersky API.
       operationId: domain-check
       parameters:
-      - description: Домен для проверки
+      - description: Веб-адрес, IP или домен для проверки
+        example: www.example.com
         in: query
         name: request
         required: true
@@ -28,17 +294,22 @@ paths:
       - application/json
       responses:
         "200":
-          description: 'Успешная проверка домена. Возможные значения цвета: Red, Green,
-            Grey.'
+          description: Успешная проверка. Возвращается объединенный ответ с информацией.
           schema:
-            $ref: '#/definitions/models.ResponseToClient'
+            $ref: '#/definitions/models.ResponseFromAPI'
         "400":
-          description: Некорректный запрос или ошибка в параметрах
+          description: 'Bad Request: Incorrect query.'
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
         "404":
-          description: Результаты поиска не найдены
+          description: 'Not Found: Lookup results not found.'
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
         "500":
-          description: Внутренняя ошибка сервера
-      summary: Проверка домена через Kaspersky API
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Проверка веб-адреса, IP или домена через Kaspersky API
       tags:
-      - Domain
+      - Scan
 swagger: "2.0"
