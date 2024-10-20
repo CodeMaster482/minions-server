@@ -76,10 +76,10 @@ type DomainGeneralInfo struct {
 	HitsCount int `json:"HitsCount" example:"10"`
 
 	// Запрошенный домен
-	Domain string `json:"Domain" example:"maliciousdomain.com"`
+	Domain string `json:"Domain" example:"ya.ru"`
 
 	// Количество IPv4 адресов
-	Ipv4Count int `json:"Ipv4Count" example:"2"`
+	Ipv4Count int `json:"Ipv4Count" example:"205"`
 
 	// Список категорий
 	Categories []string `json:"Categories,omitempty" example:"[\"Malicious DomainIPUrl\"]"`
@@ -112,40 +112,49 @@ type IpGeneralInfo struct {
 	CategoriesWithZone []CategoryWithZone `json:"CategoriesWithZone,omitempty"`
 }
 
+// Contact представляет контактную информацию
+type Contact struct {
+	// Тип контакта
+	ContactType string `json:"ContactType" example:"registrant"`
+
+	// Организация
+	Organization string `json:"Organization" example:"YANDEX, LLC."`
+}
+
 // WhoIsInfo представляет WHOIS информацию для домена или URL
 type WhoIsInfo struct {
 	// Имя домена
-	DomainName string `json:"DomainName" example:"maliciousdomain.com"`
+	DomainName string `json:"DomainName" example:"ya.ru"`
 
 	// Дата создания
-	Created string `json:"Created" example:"2020-01-01T00:00:00Z"`
+	Created string `json:"Created" example:"1999-07-11T20:00:00Z"`
 
 	// Дата последнего обновления
 	Updated string `json:"Updated" example:"2021-01-01T00:00:00Z"`
 
 	// Дата истечения
-	Expires string `json:"Expires" example:"2023-01-01T00:00:00Z"`
+	Expires string `json:"Expires" example:"2025-07-30T21:00:00Z"`
 
 	// Сервера имен
-	NameServers []string `json:"NameServers,omitempty" example:"[\"ns1.example.com\", \"ns2.example.com\"]"`
+	NameServers []string `json:"NameServers,omitempty" example:"[\"ns1.yandex.ru\", \"ns2.yandex.ru\"]"`
 
 	// Контактная информация
-	Contacts []string `json:"Contacts,omitempty" example:"[\"admin@example.com\"]"`
+	Contacts []Contact `json:"Contacts,omitempty"`
 
 	// Информация о регистраторе
 	Registrar *Registrar `json:"Registrar,omitempty"`
 
 	// Статусы домена
-	DomainStatus []string `json:"DomainStatus,omitempty" example:"[\"active\"]"`
+	DomainStatus []string `json:"DomainStatus,omitempty" example:"[\"REGISTERED, DELEGATED, VERIFIED\"]"`
 
 	// Организация регистрации
-	RegistrationOrganization string `json:"RegistrationOrganization" example:"Example Corp"`
+	RegistrationOrganization string `json:"RegistrationOrganization" example:"RU-CENTER-RU"`
 }
 
 // Registrar представляет информацию о регистраторе
 type Registrar struct {
 	// Название регистратора
-	Info string `json:"Info" example:"Example Registrar Inc."`
+	Info string `json:"Info" example:"RU-CENTER-RU"`
 
 	// IANA ID
 	IanaId string `json:"IanaId" example:"1234"`

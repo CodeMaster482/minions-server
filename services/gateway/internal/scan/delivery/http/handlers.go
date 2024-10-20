@@ -60,40 +60,54 @@ func New(apiKey string, uc scan.Usecase, logger *slog.Logger) *Handler {
 // @Failure 500 {object} models.ErrorResponse "Internal Server Error"
 //
 //	@Example 200 Success {
-//	  "zone": "Red",
-//	  "categories": ["Phishing URL"],
-//	  "categoriesWithZone": [
+//	  "Zone": "Green",
+//	  "Categories": ["CATEGORY_INFORMATION_TECHNOLOGIES", "CATEGORY_SEARCH_ENGINES_AND_SERVICES"],
+//	  "CategoriesWithZone": [
 //	    {
-//	      "name": "Phishing URL",
-//	      "zone": "Red"
+//	      "Name": "CATEGORY_INFORMATION_TECHNOLOGIES",
+//	      "Zone": "Grey"
+//	    },
+//	    {
+//	      "Name": "CATEGORY_SEARCH_ENGINES_AND_SERVICES",
+//	      "Zone": "Grey"
 //	    }
 //	  ],
-//	  "url_general_info": {
-//	    "url": "http://malicious.example.com",
-//	    "host": "malicious.example.com",
-//	    "ipv4_count": 1,
-//	    "files_count": 2,
-//	    "categories": ["Phishing URL"],
-//	    "categoriesWithZone": [
+//	  "DomainGeneralInfo": {
+//	    "FilesCount": 1000,
+//	    "UrlsCount": 100000,
+//	    "HitsCount": 1000000,
+//	    "Domain": "ya.ru",
+//	    "Ipv4Count": 205,
+//	    "Categories": ["CATEGORY_INFORMATION_TECHNOLOGIES", "CATEGORY_SEARCH_ENGINES_AND_SERVICES"],
+//	    "CategoriesWithZone": [
 //	      {
-//	        "name": "Phishing URL",
-//	        "zone": "Red"
+//	        "Name": "CATEGORY_INFORMATION_TECHNOLOGIES",
+//	        "Zone": "Grey"
+//	      },
+//	      {
+//	        "Name": "CATEGORY_SEARCH_ENGINES_AND_SERVICES",
+//	        "Zone": "Grey"
 //	      }
 //	    ]
 //	  },
-//	  "url_domain_whois": {
-//	    "domain_name": "malicious.example.com",
-//	    "created": "2020-01-01T00:00:00Z",
-//	    "updated": "2021-01-01T00:00:00Z",
-//	    "expires": "2023-01-01T00:00:00Z",
-//	    "name_servers": ["ns1.example.com", "ns2.example.com"],
-//	    "contacts": ["admin@example.com"],
-//	    "registrar": {
-//	      "info": "Example Registrar Inc.",
-//	      "iana_id": "1234"
+//	  "DomainWhoIsInfo": {
+//	    "DomainName": "ya.ru",
+//	    "Created": "1999-07-11T20:00:00Z",
+//	    "Updated": "2021-01-01T00:00:00Z",
+//	    "Expires": "2025-07-30T21:00:00Z",
+//	    "NameServers": ["ns1.yandex.ru", "ns2.yandex.ru"],
+//	    "Contacts": [
+//	      {
+//	        "ContactType": "registrant",
+//	        "Organization": "YANDEX, LLC."
+//	      }
+//	    ],
+//	    "Registrar": {
+//	      "Info": "RU-CENTER-RU",
+//	      "IanaId": "1234"
 //	    },
-//	    "domain_status": ["active"],
-//	    "registration_organization": "Example Corp"
+//	    "DomainStatus": ["REGISTERED, DELEGATED, VERIFIED"],
+//	    "RegistrationOrganization": "RU-CENTER-RU"
 //	  }
 //	}
 //

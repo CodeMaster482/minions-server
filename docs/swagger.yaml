@@ -21,6 +21,17 @@ definitions:
         example: Red
         type: string
     type: object
+  models.Contact:
+    properties:
+      ContactType:
+        description: Тип контакта
+        example: registrant
+        type: string
+      Organization:
+        description: Организация
+        example: YANDEX, LLC.
+        type: string
+    type: object
   models.DomainGeneralInfo:
     properties:
       Categories:
@@ -37,7 +48,7 @@ definitions:
         type: array
       Domain:
         description: Запрошенный домен
-        example: maliciousdomain.com
+        example: ya.ru
         type: string
       FilesCount:
         description: Количество известных вредоносных файлов
@@ -49,7 +60,7 @@ definitions:
         type: integer
       Ipv4Count:
         description: Количество IPv4 адресов
-        example: 2
+        example: 205
         type: integer
       UrlsCount:
         description: Количество известных вредоносных URL
@@ -145,7 +156,7 @@ definitions:
         type: string
       Info:
         description: Название регистратора
-        example: Example Registrar Inc.
+        example: RU-CENTER-RU
         type: string
     type: object
   models.ResponseFromAPI:
@@ -224,35 +235,35 @@ definitions:
     properties:
       Contacts:
         description: Контактная информация
-        example:
-        - '["admin@example.com"]'
         items:
-          type: string
+          $ref: '#/definitions/models.Contact'
         type: array
       Created:
         description: Дата создания
-        example: "2020-01-01T00:00:00Z"
+        example: "1999-07-11T20:00:00Z"
         type: string
       DomainName:
         description: Имя домена
-        example: maliciousdomain.com
+        example: ya.ru
         type: string
       DomainStatus:
         description: Статусы домена
         example:
-        - '["active"]'
+        - '["REGISTERED'
+        - ' DELEGATED'
+        - ' VERIFIED"]'
         items:
           type: string
         type: array
       Expires:
         description: Дата истечения
-        example: "2023-01-01T00:00:00Z"
+        example: "2025-07-30T21:00:00Z"
         type: string
       NameServers:
         description: Сервера имен
         example:
-        - '["ns1.example.com"'
-        - ' "ns2.example.com"]'
+        - '["ns1.yandex.ru"'
+        - ' "ns2.yandex.ru"]'
         items:
           type: string
         type: array
@@ -262,7 +273,7 @@ definitions:
         description: Информация о регистраторе
       RegistrationOrganization:
         description: Организация регистрации
-        example: Example Corp
+        example: RU-CENTER-RU
         type: string
       Updated:
         description: Дата последнего обновления

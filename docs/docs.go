@@ -102,6 +102,21 @@ const docTemplate = `{
                 }
             }
         },
+        "models.Contact": {
+            "type": "object",
+            "properties": {
+                "ContactType": {
+                    "description": "Тип контакта",
+                    "type": "string",
+                    "example": "registrant"
+                },
+                "Organization": {
+                    "description": "Организация",
+                    "type": "string",
+                    "example": "YANDEX, LLC."
+                }
+            }
+        },
         "models.DomainGeneralInfo": {
             "type": "object",
             "properties": {
@@ -125,7 +140,7 @@ const docTemplate = `{
                 "Domain": {
                     "description": "Запрошенный домен",
                     "type": "string",
-                    "example": "maliciousdomain.com"
+                    "example": "ya.ru"
                 },
                 "FilesCount": {
                     "description": "Количество известных вредоносных файлов",
@@ -140,7 +155,7 @@ const docTemplate = `{
                 "Ipv4Count": {
                     "description": "Количество IPv4 адресов",
                     "type": "integer",
-                    "example": 2
+                    "example": 205
                 },
                 "UrlsCount": {
                     "description": "Количество известных вредоносных URL",
@@ -272,7 +287,7 @@ const docTemplate = `{
                 "Info": {
                     "description": "Название регистратора",
                     "type": "string",
-                    "example": "Example Registrar Inc."
+                    "example": "RU-CENTER-RU"
                 }
             }
         },
@@ -395,21 +410,18 @@ const docTemplate = `{
                     "description": "Контактная информация",
                     "type": "array",
                     "items": {
-                        "type": "string"
-                    },
-                    "example": [
-                        "[\"admin@example.com\"]"
-                    ]
+                        "$ref": "#/definitions/models.Contact"
+                    }
                 },
                 "Created": {
                     "description": "Дата создания",
                     "type": "string",
-                    "example": "2020-01-01T00:00:00Z"
+                    "example": "1999-07-11T20:00:00Z"
                 },
                 "DomainName": {
                     "description": "Имя домена",
                     "type": "string",
-                    "example": "maliciousdomain.com"
+                    "example": "ya.ru"
                 },
                 "DomainStatus": {
                     "description": "Статусы домена",
@@ -418,13 +430,15 @@ const docTemplate = `{
                         "type": "string"
                     },
                     "example": [
-                        "[\"active\"]"
+                        "[\"REGISTERED",
+                        " DELEGATED",
+                        " VERIFIED\"]"
                     ]
                 },
                 "Expires": {
                     "description": "Дата истечения",
                     "type": "string",
-                    "example": "2023-01-01T00:00:00Z"
+                    "example": "2025-07-30T21:00:00Z"
                 },
                 "NameServers": {
                     "description": "Сервера имен",
@@ -433,8 +447,8 @@ const docTemplate = `{
                         "type": "string"
                     },
                     "example": [
-                        "[\"ns1.example.com\"",
-                        " \"ns2.example.com\"]"
+                        "[\"ns1.yandex.ru\"",
+                        " \"ns2.yandex.ru\"]"
                     ]
                 },
                 "Registrar": {
@@ -448,7 +462,7 @@ const docTemplate = `{
                 "RegistrationOrganization": {
                     "description": "Организация регистрации",
                     "type": "string",
-                    "example": "Example Corp"
+                    "example": "RU-CENTER-RU"
                 },
                 "Updated": {
                     "description": "Дата последнего обновления",
