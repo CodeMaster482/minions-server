@@ -5,13 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/CodeMaster482/minions-server/common"
-	"io"
-	"net/http"
-	"net/url"
-
 	"github.com/CodeMaster482/minions-server/services/gateway/internal/scan"
 	"github.com/CodeMaster482/minions-server/services/gateway/internal/scan/models"
+	"io"
 	"log/slog"
+	"net/http"
+	"net/url"
 )
 
 const (
@@ -25,30 +24,23 @@ const (
 	FailedToEncodeResponse   = "Failed to encode response"
 	KasperskyUnexpectedError = "Kaspersky API returned unexpected error"
 
-	// Ответы клиенту
+	// Сообщения об ошибках для DomainIPUrl
 	BadRequestMsg          = "Bad Request: Incorrect query."
 	UnauthorizedMsg        = "Unauthorized: Authentication failed."
 	ForbiddenMsg           = "Forbidden: Quota or request limit exceeded."
 	NotFoundMsg            = "Not Found: Lookup results not found."
 	InternalServerErrorMsg = "Internal Server Error"
 
-	// Сообщения об ошибках для ScanFile обработчика
+	// Сообщения об ошибках для ScanFile
 	ScanFileBadRequestMsg          = "Bad Request: Failed to process the uploaded file."
 	ScanFilePayloadTooLargeMsg     = "Payload Too Large: File size exceeds the 256 MB limit."
 	ScanFileInternalServerErrorMsg = "Internal Server Error: Unable to process the file."
-
-	FailedToParseFormData    = "Failed to parse form data"
-	FailedToReadFileContent  = "Failed to read file content"
-	FailedToCreateAPIRequest = "Failed to create request to Kaspersky API"
-	FailedToSendAPIRequest   = "Failed to send request to Kaspersky API"
-	FailedToReadAPIResponse  = "Failed to read response from Kaspersky API"
-	FailedToParseAPIResponse = "Failed to parse response from Kaspersky API"
-	FileTooLargeMsg          = "Payload Too Large: File size exceeds limit"
 )
 
 // Size constants
 const (
-	MB = 1 << 20
+	MB            = 1 << 20
+	MaxUploadSize = 256 * MB // Максимальный размер файла 256MB
 )
 
 type Handler struct {
@@ -65,6 +57,7 @@ func New(apiKey string, uc scan.Usecase, logger *slog.Logger) *Handler {
 	}
 }
 
+// DomainIPUrl
 // @Summary Проверка веб-адреса, IP или домена через Kaspersky API
 // @Description Эндпоинт для проверки веб-адреса, IP или домена и получения объединенного ответа с информацией из Kaspersky API.
 // В зависимости от типа входных данных (IP, URL или домен), возвращаются соответствующие поля в ответе.
@@ -74,9 +67,9 @@ func New(apiKey string, uc scan.Usecase, logger *slog.Logger) *Handler {
 // @Produce json
 // @Param request query string true "Веб-адрес, IP или домен для проверки" example(www.example.com)
 // @Success 200 {object} models.ResponseFromAPI "Успешная проверка. Возвращается объединенный ответ с информацией."
-// @Failure 400 {object} models.ErrorResponse "Bad Request: Incorrect query."
-// @Failure 404 {object} models.ErrorResponse "Not Found: Lookup results not found."
-// @Failure 500 {object} models.ErrorResponse "Internal Server Error"
+// @Failure 400 {object} common.ErrorResponse "Bad Request: Incorrect query."
+// @Failure 404 {object} common.ErrorResponse "Not Found: Lookup results not found."
+// @Failure 500 {object} common.ErrorResponse "Internal Server Error"
 //
 //	@Example 200 Success {
 //	  "Zone": "Green",
@@ -151,7 +144,6 @@ func (h *Handler) DomainIPUrl(w http.ResponseWriter, r *http.Request) {
 		slog.String("remote_addr", r.RemoteAddr),
 	)
 
-	// Извлекаем входные данные из параметра запроса
 	input := r.URL.Query().Get("request")
 	if input == "" {
 		common.RespondWithError(w, http.StatusBadRequest, BadRequestMsg)
@@ -159,7 +151,6 @@ func (h *Handler) DomainIPUrl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Определяем тип входных данных
 	inputType, err := h.usecase.DetermineInputType(input)
 	if err != nil {
 		common.RespondWithError(w, http.StatusBadRequest, InvalidInput)
@@ -167,7 +158,6 @@ func (h *Handler) DomainIPUrl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Выбираем соответствующий путь API на основе типа входных данных
 	var apiPath string
 	switch inputType {
 	case "ip":
@@ -191,10 +181,8 @@ func (h *Handler) DomainIPUrl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Устанавливаем заголовок с API-ключом
 	req.Header.Set("x-api-key", h.apiKey)
 
-	// Отправляем запрос к API
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -204,7 +192,6 @@ func (h *Handler) DomainIPUrl(w http.ResponseWriter, r *http.Request) {
 	}
 	defer resp.Body.Close()
 
-	// Обрабатываем различные статусы ответа
 	switch resp.StatusCode {
 	case http.StatusOK:
 		// Всё прошло хорошо, парсим ответ
@@ -256,9 +243,9 @@ func (h *Handler) DomainIPUrl(w http.ResponseWriter, r *http.Request) {
 	logger.Info("Successfully processed request", slog.String("input", input), slog.String("zone", apiResponse.Zone))
 }
 
-// ScanFile handles file scanning via Kaspersky API
-// @Summary Scans a file using Kaspersky API
-// @Description Endpoint for scanning a file and obtaining a basic report from Kaspersky API.
+// ScanFile
+// @Summary Сканирует файл с использованием API Kaspersky
+// @Description Эндпоинт для сканирования файла и получения базового отчета от API Kaspersky.
 // @ID file-scan
 // @Tags Scan
 // @Accept multipart/form-data
@@ -267,7 +254,7 @@ func (h *Handler) DomainIPUrl(w http.ResponseWriter, r *http.Request) {
 // @Success 200 {object} models.FileScanResponse "Successful scan. Returns basic information about the analyzed file."
 // @Failure 400 {object} common.ErrorResponse "Bad Request: Failed to process the uploaded file."
 // @Failure 401 {object} common.ErrorResponse "Unauthorized: Authentication failed."
-// @Failure 413 {object} common.ErrorResponse "Payload Too Large: File size exceeds the 256 MB limit."
+// @Failure 413 {object} common.ErrorResponse "Payload Too Large: File size exceeds the 256 Mb limit."
 // @Failure 500 {object} common.ErrorResponse "Internal Server Error: Unable to process the file."
 //
 //	@Example 200 Success {
@@ -301,19 +288,19 @@ func (h *Handler) DomainIPUrl(w http.ResponseWriter, r *http.Request) {
 //	}
 //
 //	@Example 400 Bad Request {
-//	  "Message": "Bad Request: Failed to process the uploaded file."
+//	  "Message": "Неверный запрос: Не удалось обработать загруженный файл."
 //	}
 //
 //	@Example 401 Unauthorized {
-//	  "Message": "Unauthorized: Authentication failed."
+//	  "Message": "Неавторизован: Ошибка аутентификации."
 //	}
 //
 //	@Example 413 Payload Too Large {
-//	  "Message": "Payload Too Large: File size exceeds the 256 MB limit."
+//	  "Message": "Слишком большой размер данных: Размер файла превышает 256 МБ."
 //	}
 //
 //	@Example 500 Internal Server Error {
-//	  "Message": "Internal Server Error: Unable to process the file."
+//	  "Message": "Внутренняя ошибка сервера: Не удалось обработать файл."
 //	}
 //
 // @Router /api/scan/file [post]
@@ -325,11 +312,9 @@ func (h *Handler) ScanFile(w http.ResponseWriter, r *http.Request) {
 		slog.String("remote_addr", r.RemoteAddr),
 	)
 
-	// Limit the size of the request body to 256MB
-	r.Body = http.MaxBytesReader(w, r.Body, 256<<20) // 256 MB
+	r.Body = http.MaxBytesReader(w, r.Body, MaxUploadSize)
 
-	// Parse the multipart form
-	if err := r.ParseMultipartForm(256 << 20); err != nil {
+	if err := r.ParseMultipartForm(MaxUploadSize); err != nil {
 		if err.Error() == "http: request body too large" {
 			common.RespondWithError(w, http.StatusRequestEntityTooLarge, ScanFilePayloadTooLargeMsg)
 			logger.Error(ScanFilePayloadTooLargeMsg, slog.Any("error", err))
@@ -340,7 +325,6 @@ func (h *Handler) ScanFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get the file from form data
 	file, header, err := r.FormFile("file")
 	if err != nil {
 		common.RespondWithError(w, http.StatusBadRequest, ScanFileBadRequestMsg)
@@ -352,14 +336,12 @@ func (h *Handler) ScanFile(w http.ResponseWriter, r *http.Request) {
 	filename := header.Filename
 	logger.Info("Received file for scanning", slog.String("filename", filename))
 
-	// Check the file size; if it's over 256 MB, return 413
-	if header.Size > 256<<20 { // 256 MB
+	if header.Size > MaxUploadSize {
 		common.RespondWithError(w, http.StatusRequestEntityTooLarge, ScanFilePayloadTooLargeMsg)
 		logger.Error(ScanFilePayloadTooLargeMsg, slog.Int64("file_size", header.Size))
 		return
 	}
 
-	// Read the file content
 	fileContent, err := io.ReadAll(file)
 	if err != nil {
 		common.RespondWithError(w, http.StatusInternalServerError, ScanFileInternalServerErrorMsg)
@@ -367,10 +349,8 @@ func (h *Handler) ScanFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Prepare the request to Kaspersky API
 	apiURL := fmt.Sprintf("https://opentip.kaspersky.com/api/v1/scan/file?filename=%s", url.QueryEscape(filename))
 
-	// Create a new request to Kaspersky API
 	apiReq, err := http.NewRequestWithContext(ctx, "POST", apiURL, bytes.NewReader(fileContent))
 	if err != nil {
 		common.RespondWithError(w, http.StatusInternalServerError, ScanFileInternalServerErrorMsg)
@@ -378,11 +358,9 @@ func (h *Handler) ScanFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Set the required headers
 	apiReq.Header.Set("x-api-key", h.apiKey)
 	apiReq.Header.Set("Content-Type", "application/octet-stream")
 
-	// Send the request to Kaspersky API
 	client := &http.Client{}
 	apiResp, err := client.Do(apiReq)
 	if err != nil {
@@ -392,7 +370,6 @@ func (h *Handler) ScanFile(w http.ResponseWriter, r *http.Request) {
 	}
 	defer apiResp.Body.Close()
 
-	// Read the response body
 	body, err := io.ReadAll(apiResp.Body)
 	if err != nil {
 		common.RespondWithError(w, http.StatusInternalServerError, ScanFileInternalServerErrorMsg)
@@ -400,10 +377,8 @@ func (h *Handler) ScanFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Handle the response based on status code
 	switch apiResp.StatusCode {
 	case http.StatusOK:
-		// Parse the response
 		var apiResponse models.FileScanResponse
 		if err := json.Unmarshal(body, &apiResponse); err != nil {
 			common.RespondWithError(w, http.StatusInternalServerError, ScanFileInternalServerErrorMsg)
@@ -411,7 +386,6 @@ func (h *Handler) ScanFile(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Return the response to the client
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		if err := json.NewEncoder(w).Encode(apiResponse); err != nil {

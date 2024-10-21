@@ -1,4 +1,11 @@
 definitions:
+  common.ErrorResponse:
+    properties:
+      message:
+        description: Сообщение об ошибке
+        example: Invalid input
+        type: string
+    type: object
   models.AsnInfo:
     properties:
       Description:
@@ -30,6 +37,31 @@ definitions:
       Organization:
         description: Организация
         example: YANDEX, LLC.
+        type: string
+    type: object
+  models.DetectionInfo:
+    properties:
+      DescriptionUrl:
+        description: Ссылка на описание обнаруженного объекта на сайте угроз Kaspersky
+          (если доступно)
+        example: https://threats.kaspersky.com/en/threat/DetectedObject
+        type: string
+      DetectionMethod:
+        description: Метод, использованный для обнаружения объекта
+        example: Signature
+        type: string
+      DetectionName:
+        description: Название обнаруженного объекта
+        example: Trojan.Win32.Malware
+        type: string
+      LastDetectDate:
+        description: Дата и время последнего обнаружения объекта экспертными системами
+          Kaspersky
+        example: "2022-10-01T00:00:00Z"
+        type: string
+      Zone:
+        description: Цвет зоны, к которой принадлежит обнаруженный объект
+        example: Red
         type: string
     type: object
   models.DomainGeneralInfo:
@@ -67,11 +99,88 @@ definitions:
         example: 3
         type: integer
     type: object
-  models.ErrorResponse:
+  models.DynamicDetection:
     properties:
-      Message:
-        description: Сообщение об ошибке
-        example: Invalid input
+      Threat:
+        description: Количество обнаруженных объектов, принадлежащих к данной зоне
+        example: 1
+        type: integer
+      Zone:
+        description: Цвет зоны обнаруженного объекта (Red или Yellow)
+        example: Red
+        type: string
+    type: object
+  models.FileGeneralInfo:
+    properties:
+      FileStatus:
+        description: Статус отправленного файла (Malware, Adware and other, Clean,
+          No threats detected, или Not categorized)
+        example: Malware
+        type: string
+      FirstSeen:
+        description: Дата и время, когда файл был впервые обнаружен экспертными системами
+          Kaspersky
+        example: "2022-01-01T00:00:00Z"
+        type: string
+      HitsCount:
+        description: Количество обращений (популярность) проанализированного файла,
+          обнаруженных экспертными системами Kaspersky
+        example: 100
+        type: integer
+      LastSeen:
+        description: Дата и время последнего обнаружения файла экспертными системами
+          Kaspersky
+        example: "2022-10-01T00:00:00Z"
+        type: string
+      Md5:
+        description: MD5 хеш проанализированного файла
+        example: def456...
+        type: string
+      Packer:
+        description: Название упаковщика (если доступно)
+        example: UPX
+        type: string
+      Sha1:
+        description: SHA1 хеш проанализированного файла
+        example: abc123...
+        type: string
+      Sha256:
+        description: SHA256 хеш проанализированного файла
+        example: ghi789...
+        type: string
+      Signer:
+        description: Организация, подписавшая проанализированный файл
+        example: Example Corp
+        type: string
+      Size:
+        description: Размер проанализированного файла (в байтах)
+        example: 123456
+        type: integer
+      Type:
+        description: Тип проанализированного файла
+        example: Executable
+        type: string
+    type: object
+  models.FileScanResponse:
+    properties:
+      DetectionsInfo:
+        description: Информация о обнаруженных объектах
+        items:
+          $ref: '#/definitions/models.DetectionInfo'
+        type: array
+      DynamicDetections:
+        description: Обнаружения, связанные с проанализированным файлом
+        items:
+          $ref: '#/definitions/models.DynamicDetection'
+        type: array
+      FileGeneralInfo:
+        allOf:
+        - $ref: '#/definitions/models.FileGeneralInfo'
+        description: Общая информация о проанализированном файле
+      Zone:
+        description: 'Цвет зоны, к которой принадлежит файл. Возможные значения: Red,
+          Yellow, Green, Grey'
+        example: Red
         type: string
     type: object
   models.IpGeneralInfo:
@@ -287,6 +396,46 @@ info:
   description: API server for Minions.
   title: Minions API
 paths:
+  /api/scan/file:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Эндпоинт для сканирования файла и получения базового отчета от
+        API Kaspersky.
+      operationId: file-scan
+      parameters:
+      - description: File to scan
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successful scan. Returns basic information about the analyzed
+            file.
+          schema:
+            $ref: '#/definitions/models.FileScanResponse'
+        "400":
+          description: 'Bad Request: Failed to process the uploaded file.'
+          schema:
+            $ref: '#/definitions/common.ErrorResponse'
+        "401":
+          description: 'Unauthorized: Authentication failed.'
+          schema:
+            $ref: '#/definitions/common.ErrorResponse'
+        "413":
+          description: 'Payload Too Large: File size exceeds the 256 Mb limit.'
+          schema:
+            $ref: '#/definitions/common.ErrorResponse'
+        "500":
+          description: 'Internal Server Error: Unable to process the file.'
+          schema:
+            $ref: '#/definitions/common.ErrorResponse'
+      summary: Сканирует файл с использованием API Kaspersky
+      tags:
+      - Scan
   /api/scan/uri:
     get:
       consumes:
@@ -311,15 +460,15 @@ paths:
         "400":
           description: 'Bad Request: Incorrect query.'
           schema:
-            $ref: '#/definitions/models.ErrorResponse'
+            $ref: '#/definitions/common.ErrorResponse'
         "404":
           description: 'Not Found: Lookup results not found.'
           schema:
-            $ref: '#/definitions/models.ErrorResponse'
+            $ref: '#/definitions/common.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/models.ErrorResponse'
+            $ref: '#/definitions/common.ErrorResponse'
       summary: Проверка веб-адреса, IP или домена через Kaspersky API
       tags:
       - Scan

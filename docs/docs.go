@@ -18,6 +18,63 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/api/scan/file": {
+            "post": {
+                "description": "Эндпоинт для сканирования файла и получения базового отчета от API Kaspersky.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Scan"
+                ],
+                "summary": "Сканирует файл с использованием API Kaspersky",
+                "operationId": "file-scan",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "File to scan",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful scan. Returns basic information about the analyzed file.",
+                        "schema": {
+                            "$ref": "#/definitions/models.FileScanResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request: Failed to process the uploaded file.",
+                        "schema": {
+                            "$ref": "#/definitions/common.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized: Authentication failed.",
+                        "schema": {
+                            "$ref": "#/definitions/common.ErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "Payload Too Large: File size exceeds the 256 Mb limit.",
+                        "schema": {
+                            "$ref": "#/definitions/common.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error: Unable to process the file.",
+                        "schema": {
+                            "$ref": "#/definitions/common.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/scan/uri": {
             "get": {
                 "description": "Эндпоинт для проверки веб-адреса, IP или домена и получения объединенного ответа с информацией из Kaspersky API.",
@@ -52,19 +109,19 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request: Incorrect query.",
                         "schema": {
-                            "$ref": "#/definitions/models.ErrorResponse"
+                            "$ref": "#/definitions/common.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found: Lookup results not found.",
                         "schema": {
-                            "$ref": "#/definitions/models.ErrorResponse"
+                            "$ref": "#/definitions/common.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.ErrorResponse"
+                            "$ref": "#/definitions/common.ErrorResponse"
                         }
                     }
                 }
@@ -72,6 +129,16 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "common.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "description": "Сообщение об ошибке",
+                    "type": "string",
+                    "example": "Invalid input"
+                }
+            }
+        },
         "models.AsnInfo": {
             "type": "object",
             "properties": {
@@ -114,6 +181,36 @@ const docTemplate = `{
                     "description": "Организация",
                     "type": "string",
                     "example": "YANDEX, LLC."
+                }
+            }
+        },
+        "models.DetectionInfo": {
+            "type": "object",
+            "properties": {
+                "DescriptionUrl": {
+                    "description": "Ссылка на описание обнаруженного объекта на сайте угроз Kaspersky (если доступно)",
+                    "type": "string",
+                    "example": "https://threats.kaspersky.com/en/threat/DetectedObject"
+                },
+                "DetectionMethod": {
+                    "description": "Метод, использованный для обнаружения объекта",
+                    "type": "string",
+                    "example": "Signature"
+                },
+                "DetectionName": {
+                    "description": "Название обнаруженного объекта",
+                    "type": "string",
+                    "example": "Trojan.Win32.Malware"
+                },
+                "LastDetectDate": {
+                    "description": "Дата и время последнего обнаружения объекта экспертными системами Kaspersky",
+                    "type": "string",
+                    "example": "2022-10-01T00:00:00Z"
+                },
+                "Zone": {
+                    "description": "Цвет зоны, к которой принадлежит обнаруженный объект",
+                    "type": "string",
+                    "example": "Red"
                 }
             }
         },
@@ -164,13 +261,110 @@ const docTemplate = `{
                 }
             }
         },
-        "models.ErrorResponse": {
+        "models.DynamicDetection": {
             "type": "object",
             "properties": {
-                "Message": {
-                    "description": "Сообщение об ошибке",
+                "Threat": {
+                    "description": "Количество обнаруженных объектов, принадлежащих к данной зоне",
+                    "type": "integer",
+                    "example": 1
+                },
+                "Zone": {
+                    "description": "Цвет зоны обнаруженного объекта (Red или Yellow)",
                     "type": "string",
-                    "example": "Invalid input"
+                    "example": "Red"
+                }
+            }
+        },
+        "models.FileGeneralInfo": {
+            "type": "object",
+            "properties": {
+                "FileStatus": {
+                    "description": "Статус отправленного файла (Malware, Adware and other, Clean, No threats detected, или Not categorized)",
+                    "type": "string",
+                    "example": "Malware"
+                },
+                "FirstSeen": {
+                    "description": "Дата и время, когда файл был впервые обнаружен экспертными системами Kaspersky",
+                    "type": "string",
+                    "example": "2022-01-01T00:00:00Z"
+                },
+                "HitsCount": {
+                    "description": "Количество обращений (популярность) проанализированного файла, обнаруженных экспертными системами Kaspersky",
+                    "type": "integer",
+                    "example": 100
+                },
+                "LastSeen": {
+                    "description": "Дата и время последнего обнаружения файла экспертными системами Kaspersky",
+                    "type": "string",
+                    "example": "2022-10-01T00:00:00Z"
+                },
+                "Md5": {
+                    "description": "MD5 хеш проанализированного файла",
+                    "type": "string",
+                    "example": "def456..."
+                },
+                "Packer": {
+                    "description": "Название упаковщика (если доступно)",
+                    "type": "string",
+                    "example": "UPX"
+                },
+                "Sha1": {
+                    "description": "SHA1 хеш проанализированного файла",
+                    "type": "string",
+                    "example": "abc123..."
+                },
+                "Sha256": {
+                    "description": "SHA256 хеш проанализированного файла",
+                    "type": "string",
+                    "example": "ghi789..."
+                },
+                "Signer": {
+                    "description": "Организация, подписавшая проанализированный файл",
+                    "type": "string",
+                    "example": "Example Corp"
+                },
+                "Size": {
+                    "description": "Размер проанализированного файла (в байтах)",
+                    "type": "integer",
+                    "example": 123456
+                },
+                "Type": {
+                    "description": "Тип проанализированного файла",
+                    "type": "string",
+                    "example": "Executable"
+                }
+            }
+        },
+        "models.FileScanResponse": {
+            "type": "object",
+            "properties": {
+                "DetectionsInfo": {
+                    "description": "Информация о обнаруженных объектах",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.DetectionInfo"
+                    }
+                },
+                "DynamicDetections": {
+                    "description": "Обнаружения, связанные с проанализированным файлом",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.DynamicDetection"
+                    }
+                },
+                "FileGeneralInfo": {
+                    "description": "Общая информация о проанализированном файле",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.FileGeneralInfo"
+                        }
+                    ]
+                },
+                "Zone": {
+                    "description": "Цвет зоны, к которой принадлежит файл. Возможные значения: Red, Yellow, Green, Grey",
+                    "type": "string",
+                    "example": "Red"
                 }
             }
         },
