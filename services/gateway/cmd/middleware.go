@@ -28,12 +28,12 @@ func loggingMiddleware(logger *slog.Logger) mux.MiddlewareFunc {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
 			next.ServeHTTP(w, r)
-			duration := time.Since(start)
+			duration := time.Since(start).Seconds()
 			logger.Info("Handled request",
 				slog.String("method", r.Method),
 				slog.String("url", r.URL.String()),
 				slog.String("remote_addr", r.RemoteAddr),
-				slog.Duration("duration", duration),
+				slog.Float64("duration_seconds", duration),
 			)
 		})
 	}
