@@ -1,6 +1,7 @@
 package http
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/CodeMaster482/minions-server/common"
@@ -30,6 +31,24 @@ const (
 	ForbiddenMsg           = "Forbidden: Quota or request limit exceeded."
 	NotFoundMsg            = "Not Found: Lookup results not found."
 	InternalServerErrorMsg = "Internal Server Error"
+
+	// Сообщения об ошибках для ScanFile обработчика
+	ScanFileBadRequestMsg          = "Bad Request: Failed to process the uploaded file."
+	ScanFilePayloadTooLargeMsg     = "Payload Too Large: File size exceeds the 256 MB limit."
+	ScanFileInternalServerErrorMsg = "Internal Server Error: Unable to process the file."
+
+	FailedToParseFormData    = "Failed to parse form data"
+	FailedToReadFileContent  = "Failed to read file content"
+	FailedToCreateAPIRequest = "Failed to create request to Kaspersky API"
+	FailedToSendAPIRequest   = "Failed to send request to Kaspersky API"
+	FailedToReadAPIResponse  = "Failed to read response from Kaspersky API"
+	FailedToParseAPIResponse = "Failed to parse response from Kaspersky API"
+	FileTooLargeMsg          = "Payload Too Large: File size exceeds limit"
+)
+
+// Size constants
+const (
+	MB = 1 << 20
 )
 
 type Handler struct {
@@ -235,4 +254,191 @@ func (h *Handler) DomainIPUrl(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Info("Successfully processed request", slog.String("input", input), slog.String("zone", apiResponse.Zone))
+}
+
+// ScanFile handles file scanning via Kaspersky API
+// @Summary Scans a file using Kaspersky API
+// @Description Endpoint for scanning a file and obtaining a basic report from Kaspersky API.
+// @ID file-scan
+// @Tags Scan
+// @Accept multipart/form-data
+// @Produce json
+// @Param file formData file true "File to scan"
+// @Success 200 {object} models.FileScanResponse "Successful scan. Returns basic information about the analyzed file."
+// @Failure 400 {object} common.ErrorResponse "Bad Request: Failed to process the uploaded file."
+// @Failure 401 {object} common.ErrorResponse "Unauthorized: Authentication failed."
+// @Failure 413 {object} common.ErrorResponse "Payload Too Large: File size exceeds the 256 MB limit."
+// @Failure 500 {object} common.ErrorResponse "Internal Server Error: Unable to process the file."
+//
+//	@Example 200 Success {
+//	  "Zone": "Red",
+//	  "FileGeneralInfo": {
+//	    "FileStatus": "Malware",
+//	    "Sha1": "abc123...",
+//	    "Md5": "def456...",
+//	    "Sha256": "ghi789...",
+//	    "FirstSeen": "2022-01-01T00:00:00Z",
+//	    "LastSeen": "2022-10-01T00:00:00Z",
+//	    "Size": 123456,
+//	    "Type": "Executable",
+//	    "HitsCount": 100
+//	  },
+//	  "DetectionsInfo": [
+//	    {
+//	      "LastDetectDate": "2022-10-01T00:00:00Z",
+//	      "DescriptionUrl": "https://threats.kaspersky.com/en/threat/DetectedObject",
+//	      "Zone": "Red",
+//	      "DetectionName": "Trojan.Win32.Malware",
+//	      "DetectionMethod": "Signature"
+//	    }
+//	  ],
+//	  "DynamicDetections": [
+//	    {
+//	      "Zone": "Red",
+//	      "Threat": 1
+//	    }
+//	  ]
+//	}
+//
+//	@Example 400 Bad Request {
+//	  "Message": "Bad Request: Failed to process the uploaded file."
+//	}
+//
+//	@Example 401 Unauthorized {
+//	  "Message": "Unauthorized: Authentication failed."
+//	}
+//
+//	@Example 413 Payload Too Large {
+//	  "Message": "Payload Too Large: File size exceeds the 256 MB limit."
+//	}
+//
+//	@Example 500 Internal Server Error {
+//	  "Message": "Internal Server Error: Unable to process the file."
+//	}
+//
+// @Router /api/scan/file [post]
+func (h *Handler) ScanFile(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	logger := h.logger.With(
+		slog.String("method", r.Method),
+		slog.String("url", r.URL.String()),
+		slog.String("remote_addr", r.RemoteAddr),
+	)
+
+	// Limit the size of the request body to 256MB
+	r.Body = http.MaxBytesReader(w, r.Body, 256<<20) // 256 MB
+
+	// Parse the multipart form
+	if err := r.ParseMultipartForm(256 << 20); err != nil {
+		if err.Error() == "http: request body too large" {
+			common.RespondWithError(w, http.StatusRequestEntityTooLarge, ScanFilePayloadTooLargeMsg)
+			logger.Error(ScanFilePayloadTooLargeMsg, slog.Any("error", err))
+			return
+		}
+		common.RespondWithError(w, http.StatusBadRequest, ScanFileBadRequestMsg)
+		logger.Error(ScanFileBadRequestMsg, slog.Any("error", err))
+		return
+	}
+
+	// Get the file from form data
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		common.RespondWithError(w, http.StatusBadRequest, ScanFileBadRequestMsg)
+		logger.Error(ScanFileBadRequestMsg, slog.Any("error", err))
+		return
+	}
+	defer file.Close()
+
+	filename := header.Filename
+	logger.Info("Received file for scanning", slog.String("filename", filename))
+
+	// Check the file size; if it's over 256 MB, return 413
+	if header.Size > 256<<20 { // 256 MB
+		common.RespondWithError(w, http.StatusRequestEntityTooLarge, ScanFilePayloadTooLargeMsg)
+		logger.Error(ScanFilePayloadTooLargeMsg, slog.Int64("file_size", header.Size))
+		return
+	}
+
+	// Read the file content
+	fileContent, err := io.ReadAll(file)
+	if err != nil {
+		common.RespondWithError(w, http.StatusInternalServerError, ScanFileInternalServerErrorMsg)
+		logger.Error(ScanFileInternalServerErrorMsg, slog.Any("error", err))
+		return
+	}
+
+	// Prepare the request to Kaspersky API
+	apiURL := fmt.Sprintf("https://opentip.kaspersky.com/api/v1/scan/file?filename=%s", url.QueryEscape(filename))
+
+	// Create a new request to Kaspersky API
+	apiReq, err := http.NewRequestWithContext(ctx, "POST", apiURL, bytes.NewReader(fileContent))
+	if err != nil {
+		common.RespondWithError(w, http.StatusInternalServerError, ScanFileInternalServerErrorMsg)
+		logger.Error(ScanFileInternalServerErrorMsg, slog.Any("error", err))
+		return
+	}
+
+	// Set the required headers
+	apiReq.Header.Set("x-api-key", h.apiKey)
+	apiReq.Header.Set("Content-Type", "application/octet-stream")
+
+	// Send the request to Kaspersky API
+	client := &http.Client{}
+	apiResp, err := client.Do(apiReq)
+	if err != nil {
+		common.RespondWithError(w, http.StatusInternalServerError, ScanFileInternalServerErrorMsg)
+		logger.Error(ScanFileInternalServerErrorMsg, slog.Any("error", err))
+		return
+	}
+	defer apiResp.Body.Close()
+
+	// Read the response body
+	body, err := io.ReadAll(apiResp.Body)
+	if err != nil {
+		common.RespondWithError(w, http.StatusInternalServerError, ScanFileInternalServerErrorMsg)
+		logger.Error(ScanFileInternalServerErrorMsg, slog.Any("error", err))
+		return
+	}
+
+	// Handle the response based on status code
+	switch apiResp.StatusCode {
+	case http.StatusOK:
+		// Parse the response
+		var apiResponse models.FileScanResponse
+		if err := json.Unmarshal(body, &apiResponse); err != nil {
+			common.RespondWithError(w, http.StatusInternalServerError, ScanFileInternalServerErrorMsg)
+			logger.Error(ScanFileInternalServerErrorMsg, slog.Any("error", err))
+			return
+		}
+
+		// Return the response to the client
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		if err := json.NewEncoder(w).Encode(apiResponse); err != nil {
+			common.RespondWithError(w, http.StatusInternalServerError, ScanFileInternalServerErrorMsg)
+			logger.Error(ScanFileInternalServerErrorMsg, slog.Any("error", err))
+			return
+		}
+		logger.Info("Successfully processed file scan", slog.String("filename", filename))
+
+	case http.StatusBadRequest:
+		common.RespondWithError(w, http.StatusBadRequest, BadRequestMsg)
+		logger.Error(BadRequestMsg)
+		return
+
+	case http.StatusUnauthorized:
+		common.RespondWithError(w, http.StatusUnauthorized, UnauthorizedMsg)
+		logger.Error(UnauthorizedMsg)
+		return
+
+	case http.StatusRequestEntityTooLarge:
+		common.RespondWithError(w, http.StatusRequestEntityTooLarge, ScanFilePayloadTooLargeMsg)
+		logger.Error(ScanFilePayloadTooLargeMsg)
+		return
+
+	default:
+		common.RespondWithError(w, http.StatusInternalServerError, KasperskyUnexpectedError)
+		logger.Error(KasperskyUnexpectedError, slog.Int("status_code", apiResp.StatusCode))
+		return
+	}
 }

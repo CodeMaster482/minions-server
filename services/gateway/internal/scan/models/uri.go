@@ -1,11 +1,5 @@
 package models
 
-// ErrorResponse представляет ответ с ошибкой
-type ErrorResponse struct {
-	// Сообщение об ошибке
-	Message string `json:"Message" example:"Invalid input"`
-}
-
 // ResponseFromAPI представляет объединенный ответ от Kaspersky API
 type ResponseFromAPI struct {
 	// Цвет зоны: Red, Green, Grey
