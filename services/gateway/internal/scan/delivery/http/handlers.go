@@ -151,6 +151,8 @@ func (h *Handler) DomainIPUrl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	logger.Info("Request from user", input)
+
 	inputType, err := h.usecase.DetermineInputType(input)
 	if err != nil {
 		common.RespondWithError(w, http.StatusBadRequest, InvalidInput)
