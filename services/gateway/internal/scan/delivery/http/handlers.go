@@ -60,7 +60,7 @@ func New(apiKey string, uc scan.Usecase, logger *slog.Logger) *Handler {
 // DomainIPUrl
 // @Summary Проверка веб-адреса, IP или домена через Kaspersky API
 // @Description Эндпоинт для проверки веб-адреса, IP или домена и получения объединенного ответа с информацией из Kaspersky API.
-// В зависимости от типа входных данных (IP, URL или домен), возвращаются соответствующие поля в ответе.
+// В зависимости от типа входных данных (IPv4, URL или домен), возвращаются соответствующие поля в ответе.
 // @ID domain-check
 // @Tags Scan
 // @Accept json
