@@ -134,8 +134,7 @@ const docTemplate = `{
             "properties": {
                 "message": {
                     "description": "Сообщение об ошибке",
-                    "type": "string",
-                    "example": "Invalid input"
+                    "type": "string"
                 }
             }
         },

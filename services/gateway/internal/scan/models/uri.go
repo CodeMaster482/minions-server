@@ -166,10 +166,10 @@ type IpWhoIs struct {
 // AsnInfo представляет информацию об автономной системе
 type AsnInfo struct {
 	// Номер автономной системы
-	Number string `json:"Number" example:"AS12345"`
+	Number int `json:"Number" example:"25513"`
 
 	// Описание автономной системы
-	Description string `json:"Description" example:"Example ISP"`
+	Description []string `json:"Description" example:"[\"Example ISP\"]"`
 }
 
 // NetInfo представляет информацию о сети
