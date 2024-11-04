@@ -26,6 +26,7 @@ import (
 	scanRedisRepo "github.com/CodeMaster482/minions-server/services/gateway/internal/scan/repo/redis"
 	scanUsecase "github.com/CodeMaster482/minions-server/services/gateway/internal/scan/usecase"
 	"github.com/CodeMaster482/minions-server/services/gateway/pkg/middleware"
+	_ "github.com/lib/pq"
 )
 
 // @title Minions API
