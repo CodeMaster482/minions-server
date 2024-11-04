@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: ../
+      dockerfile: build/gateway/Dockerfile
+    depends_on:
+      - postgres
+      - redis
+    ports:
+      - "8080:8080"
+    volumes:
+      - ../services/gateway/cmd/config.yaml:/app/config.yaml
+    command: ["./minions-server", "-c", "/app/config.yaml"]
+    networks:
+      - backend
+
+  postgres:
+    image: postgres:17.0-alpine3.20
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: minions
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - backend
+
+  redis:
+    image: redis:7.4.1-alpine3.20
+    restart: always
+    networks:
+      - backend
+
+volumes:
+  pgdata:
+
+networks:
+  backend:

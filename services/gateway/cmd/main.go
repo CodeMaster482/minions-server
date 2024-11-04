@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/CodeMaster482/minions-server/common"
+	"github.com/CodeMaster482/minions-server/services/gateway/internal/middleware"
 	"io"
 	"log/slog"
 	"net/http"
@@ -87,9 +88,9 @@ func run() error {
 	r := mux.NewRouter().PathPrefix("/api").Subrouter()
 
 	r.Use(
-		recoveryMiddleware(logger),
-		corsMiddleware,
-		loggingMiddleware(logger),
+		middleware.Recovery(logger),
+		middleware.Cors,
+		middleware.Logging(logger),
 	)
 
 	r.PathPrefix("/swagger/").Handler(httpSwagger.Handler(

@@ -1,4 +1,4 @@
-package main
+package middleware
 
 import (
 	"github.com/gorilla/mux"
@@ -7,8 +7,8 @@ import (
 	"time"
 )
 
-// recoveryMiddleware для восстановления после паники
-func recoveryMiddleware(logger *slog.Logger) mux.MiddlewareFunc {
+// Recovery для восстановления после паники
+func Recovery(logger *slog.Logger) mux.MiddlewareFunc {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			defer func() {
@@ -22,8 +22,8 @@ func recoveryMiddleware(logger *slog.Logger) mux.MiddlewareFunc {
 	}
 }
 
-// loggingMiddleware для логирования запросов
-func loggingMiddleware(logger *slog.Logger) mux.MiddlewareFunc {
+// Logging для логирования запросов
+func Logging(logger *slog.Logger) mux.MiddlewareFunc {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
@@ -39,8 +39,8 @@ func loggingMiddleware(logger *slog.Logger) mux.MiddlewareFunc {
 	}
 }
 
-// corsMiddleware для обработки CORS
-func corsMiddleware(next http.Handler) http.Handler {
+// Cors для обработки CORS
+func Cors(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		if r.Method == http.MethodOptions {
