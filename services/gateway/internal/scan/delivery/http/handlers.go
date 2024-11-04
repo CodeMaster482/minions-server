@@ -6,13 +6,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/CodeMaster482/minions-server/common"
-	"github.com/CodeMaster482/minions-server/services/gateway/internal/scan"
-	"github.com/CodeMaster482/minions-server/services/gateway/internal/scan/models"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/url"
+
+	"github.com/CodeMaster482/minions-server/common"
+	"github.com/CodeMaster482/minions-server/services/gateway/internal/scan"
+	"github.com/CodeMaster482/minions-server/services/gateway/internal/scan/models"
 )
 
 const (
@@ -46,9 +47,10 @@ const (
 )
 
 type Handler struct {
-	apiKey  string
-	usecase scan.Usecase
-	logger  *slog.Logger
+	apiKey   string
+	folderID string
+	usecase  scan.Usecase
+	logger   *slog.Logger
 }
 
 func New(apiKey string, uc scan.Usecase, logger *slog.Logger) *Handler {

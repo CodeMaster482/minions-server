@@ -4,17 +4,23 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/CodeMaster482/minions-server/services/gateway/internal/scan"
 	"log/slog"
 	"net"
+	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
+
+	"github.com/CodeMaster482/minions-server/common"
+	"github.com/CodeMaster482/minions-server/services/gateway/internal/scan"
+
+	"github.com/CodeMaster482/minions-server/services/gateway/internal/scan/models"
 )
 
 var (
-	ErrCacheMiss   = errors.New("cache miss")
-	ErrRowNotFound = errors.New("row not found in db")
+	ErrCacheMiss       = errors.New("cache miss")
+	ErrRowNotFound     = errors.New("row not found in db")
+	ErrUnsupportedFlow = errors.New("")
 )
 
 type Usecase struct {
@@ -58,6 +64,91 @@ func (uc *Usecase) DetermineInputType(input string) (string, error) {
 	}
 
 	return "", errors.New("invalid input")
+}
+
+// возвращает слова из запроса OCR без побелов
+func (uc *Usecase) GetTextOCRResponse(OCR models.OCRResponse) ([]string, error) {
+	var texts []string
+	for _, block := range OCR.Result.TextAnnotation.Blocks {
+		for _, line := range block.Lines {
+			for _, alternative := range line.Alternatives {
+				texts = append(texts, strings.TrimSpace(alternative.Text))
+				for _, word := range alternative.Words {
+					texts = append(texts, strings.TrimSpace(word.Text))
+				}
+			}
+		}
+	}
+
+	words := filterWords(texts)
+
+	if len(words) == 0 {
+		return nil, errors.New("Not found IOC for screenshot")
+	}
+
+	return filterWords(texts)
+}
+
+func (uc *Usecase) RequestKasperskyAPI(ctx context.Context, ioc string) (map[string]interface{}, error) {
+	var apiPath string
+
+	apiPath, err := getIocFlow(ioc)
+	if err != nil {
+		return nil, fmt.Errorf("getIocFlow: %w", err)
+	}
+
+	apiURL := fmt.Sprintf("https://opentip.kaspersky.com%s?request=%s", apiPath, url.QueryEscape(ioc))
+
+	req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
+	if err != nil {
+		return nil,
+			common.RespondWithError(w, http.StatusInternalServerError, InternalServerErrorMsg)
+		logger.Error(FailedToCreateRequest, slog.Any("error", err))
+
+		return nil, nil
+	}
+
+	req.Header.Set("x-api-key", h.apiKey)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+
+		return
+	}
+	defer resp.Body.Close()
+}
+
+func getIocFlow(inputType string) (string, error) {
+	switch inputType {
+	case "ip":
+		apiPath = "/api/v1/search/ip"
+	case "url":
+		apiPath = "/api/v1/search/url"
+	case "domain":
+		apiPath = "/api/v1/search/domain"
+	default:
+		return "", ErrUnsupportedFlow
+	}
+
+	return apiPath, nil
+}
+
+var apiPath string
+
+func filterWords(words []string) []string {
+	urlRegex := regexp.MustCompile(`https?://[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}`)
+	ipRegex := regexp.MustCompile(`\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b`)
+	domainRegex := regexp.MustCompile(`\b[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b`)
+
+	var result []string
+	for _, word := range words {
+		// Проверяем, соответствует ли слово одному из шаблонов
+		if urlRegex.MatchString(word) || ipRegex.MatchString(word) || domainRegex.MatchString(word) {
+			result = append(result, word)
+		}
+	}
+	return result
 }
 
 // isValidDomain проверяет, является ли строка валидным доменным именем.

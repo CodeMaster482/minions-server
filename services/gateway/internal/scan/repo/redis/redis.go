@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/redis/go-redis/v9"
 	"log/slog"
 	"time"
+
+	"github.com/redis/go-redis/v9"
 )
 
 const RedisCacheExpiration = 24 * time.Hour
