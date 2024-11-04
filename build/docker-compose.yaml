@@ -14,6 +14,7 @@ services:
       - "8080:8080"
     volumes:
       - ../services/gateway/cmd/config.yaml:/app/config.yaml
+      - ../services/gateway/logs:/var/log
     command: ["./minions-server", "-c", "/app/config.yaml"]
     networks:
       - backend
