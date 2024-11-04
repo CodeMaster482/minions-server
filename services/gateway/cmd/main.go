@@ -5,8 +5,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/CodeMaster482/minions-server/common"
-	"github.com/CodeMaster482/minions-server/services/gateway/internal/middleware"
 	"io"
 	"log/slog"
 	"net/http"
@@ -15,13 +13,19 @@ import (
 	"syscall"
 	"time"
 
+	"database/sql"
 	"github.com/gorilla/mux"
+	"github.com/redis/go-redis/v9"
 	httpSwagger "github.com/swaggo/http-swagger"
 	"gopkg.in/natefinch/lumberjack.v2"
 
+	"github.com/CodeMaster482/minions-server/common"
 	_ "github.com/CodeMaster482/minions-server/docs"
 	scanHandlers "github.com/CodeMaster482/minions-server/services/gateway/internal/scan/delivery/http"
+	scanPostgresRepo "github.com/CodeMaster482/minions-server/services/gateway/internal/scan/repo/postgres"
+	scanRedisRepo "github.com/CodeMaster482/minions-server/services/gateway/internal/scan/repo/redis"
 	scanUsecase "github.com/CodeMaster482/minions-server/services/gateway/internal/scan/usecase"
+	"github.com/CodeMaster482/minions-server/services/gateway/pkg/middleware"
 )
 
 // @title Minions API
@@ -57,9 +61,9 @@ func run() error {
 
 	writers = append(writers, os.Stdout)
 
-	if cfg.LogFile != "" {
+	if cfg.Gateway.LogFile != "" {
 		lumberjackLogger := &lumberjack.Logger{
-			Filename:   cfg.LogFile,
+			Filename:   cfg.Gateway.LogFile,
 			MaxSize:    100,
 			MaxBackups: 0,
 			MaxAge:     14,
@@ -70,18 +74,40 @@ func run() error {
 
 	multiWriter := io.MultiWriter(writers...)
 
-	if cfg.LogFormat == "json" {
+	if cfg.Gateway.LogFormat == "json" {
 		logger = slog.New(slog.NewJSONHandler(multiWriter, handlerOptions))
 	} else {
 		logger = slog.New(slog.NewTextHandler(multiWriter, handlerOptions))
 	}
 
-	logger.Info("Starting URL service")
+	logger.Info("Starting gateway service")
 
 	//=================================================================//
 
-	scanUsecase := scanUsecase.New()
-	scan := scanHandlers.New(cfg.KasperskyAPIKey, scanUsecase, logger)
+	postgresClient, err := initPostgres(cfg.Postgres)
+	if err != nil {
+		slog.Error("init Postgres failed", slog.Any("error", err))
+
+		return err
+	}
+	defer postgresClient.Close()
+
+	//=================================================================//
+
+	redisClient, err := initRedis(cfg.Redis)
+	if err != nil {
+		slog.Error("init Redis failed", slog.Any("error", err))
+
+		return err
+	}
+	defer redisClient.Close()
+
+	//=================================================================//
+
+	scanPostgresRepo := scanPostgresRepo.New(postgresClient, logger)
+	scanRedisRepo := scanRedisRepo.New(redisClient, logger)
+	scanUsecase := scanUsecase.New(scanPostgresRepo, scanRedisRepo, logger)
+	scan := scanHandlers.New(cfg.Gateway.KasperskyAPIKey, scanUsecase, logger)
 
 	//=================================================================//
 
@@ -111,11 +137,11 @@ func run() error {
 
 	srv := &http.Server{
 		Handler:           r,
-		Addr:              cfg.Address,
-		ReadTimeout:       cfg.Timeout,
-		WriteTimeout:      cfg.Timeout,
-		IdleTimeout:       cfg.IdleTimeout,
-		ReadHeaderTimeout: cfg.ReadHeaderTimeout,
+		Addr:              cfg.Gateway.Address,
+		ReadTimeout:       cfg.Gateway.Timeout,
+		WriteTimeout:      cfg.Gateway.Timeout,
+		IdleTimeout:       cfg.Gateway.IdleTimeout,
+		ReadHeaderTimeout: cfg.Gateway.ReadHeaderTimeout,
 	}
 
 	// Канал для перехвата сигналов завершения работы
@@ -128,7 +154,7 @@ func run() error {
 		}
 	}()
 
-	logger.Info("Server started", slog.String("address", cfg.Address))
+	logger.Info("Server started", slog.String("address", cfg.Gateway.Address))
 
 	// Ожидаем сигнала завершения
 	<-quit
@@ -145,4 +171,42 @@ func run() error {
 
 	logger.Info("Server exited properly")
 	return nil
+}
+
+func initPostgres(cfg PostgresConfig) (*sql.DB, error) {
+	dsn := fmt.Sprintf(
+		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
+		cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.DBName, cfg.SSLMode,
+	)
+
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := db.PingContext(ctx); err != nil {
+		return nil, err
+	}
+
+	return db, nil
+}
+
+func initRedis(cfg RedisConfig) (*redis.Client, error) {
+	options := &redis.Options{
+		Addr:     cfg.Addr,
+		Password: cfg.Password,
+		DB:       cfg.DB,
+	}
+
+	client := redis.NewClient(options)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if _, err := client.Ping(ctx).Result(); err != nil {
+		return nil, err
+	}
+
+	return client, nil
 }

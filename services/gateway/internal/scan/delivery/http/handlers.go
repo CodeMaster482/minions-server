@@ -2,7 +2,9 @@ package http
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/CodeMaster482/minions-server/common"
 	"github.com/CodeMaster482/minions-server/services/gateway/internal/scan"
@@ -144,19 +146,73 @@ func (h *Handler) DomainIPUrl(w http.ResponseWriter, r *http.Request) {
 		slog.String("remote_addr", r.RemoteAddr),
 	)
 
-	input := r.URL.Query().Get("request")
-	if input == "" {
+	requestParam := r.URL.Query().Get("request")
+	if requestParam == "" {
 		common.RespondWithError(w, http.StatusBadRequest, BadRequestMsg)
 		logger.Error(MissingRequestParam)
 		return
 	}
 
-	logger.Info("Request from user", input)
+	logger.Info("Request from user", requestParam)
 
-	inputType, err := h.usecase.DetermineInputType(input)
+	inputType, err := h.usecase.DetermineInputType(requestParam)
 	if err != nil {
 		common.RespondWithError(w, http.StatusBadRequest, InvalidInput)
 		logger.Error(InvalidInput, slog.Any("error", err))
+		return
+	}
+
+	// Проверяем наличие в redis
+	var response models.ResponseFromAPI
+	cachedResponse, err := h.usecase.CachedResponse(ctx, inputType, requestParam)
+	if err == nil {
+		// Если найдено в redis, возвращаем кэшированный ответ
+		if err := json.Unmarshal([]byte(cachedResponse), &response); err == nil {
+			w.Header().Set("Content-Type", "application/json")
+			err := json.NewEncoder(w).Encode(response)
+			if err != nil {
+				common.RespondWithError(w, http.StatusInternalServerError, FailedToEncodeResponse)
+				logger.Error(FailedToEncodeResponse, slog.Any("error", err))
+
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+
+			logger.Info("Returning cached response from redis", slog.String("request", requestParam))
+
+			return
+		}
+		// Если произошла ошибка при разборе кэша, продолжаем обработку
+	}
+
+	// Ищем в postgres
+	savedResponse, err := h.usecase.SavedResponse(ctx, inputType, requestParam)
+	if err != nil {
+		// Если найдено в PostgreSQL, обновляем redis и возвращаем ответ
+		if err := json.Unmarshal([]byte(savedResponse), &response); err == nil {
+			err := h.usecase.SetCachedResponse(ctx, savedResponse, inputType, requestParam)
+			if err != nil {
+				logger.Warn("Cache is not updated in Redis", slog.Any("error", err))
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			err = json.NewEncoder(w).Encode(response)
+			if err != nil {
+				common.RespondWithError(w, http.StatusInternalServerError, FailedToEncodeResponse)
+				logger.Error(FailedToEncodeResponse, slog.Any("error", err))
+
+				return
+			}
+
+			w.WriteHeader(http.StatusOK)
+			logger.Info("Response from db was successfully found", slog.String("request", requestParam))
+
+			return
+		}
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		common.RespondWithError(w, http.StatusInternalServerError, InternalServerErrorMsg)
+		logger.Error("Ошибка при запросе к PostgreSQL", slog.Any("error", err))
+
 		return
 	}
 
@@ -171,15 +227,17 @@ func (h *Handler) DomainIPUrl(w http.ResponseWriter, r *http.Request) {
 	default:
 		common.RespondWithError(w, http.StatusBadRequest, UnsupportedInputType)
 		logger.Error(UnsupportedInputType, slog.String("inputType", inputType))
+
 		return
 	}
 
-	apiURL := fmt.Sprintf("https://opentip.kaspersky.com%s?request=%s", apiPath, url.QueryEscape(input))
+	apiURL := fmt.Sprintf("https://opentip.kaspersky.com%s?request=%s", apiPath, url.QueryEscape(requestParam))
 
 	req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
 	if err != nil {
 		common.RespondWithError(w, http.StatusInternalServerError, InternalServerErrorMsg)
 		logger.Error(FailedToCreateRequest, slog.Any("error", err))
+
 		return
 	}
 
@@ -190,6 +248,7 @@ func (h *Handler) DomainIPUrl(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		common.RespondWithError(w, http.StatusInternalServerError, InternalServerErrorMsg)
 		logger.Error(FailedToSendRequest, slog.Any("error", err))
+
 		return
 	}
 	defer resp.Body.Close()
@@ -223,6 +282,7 @@ func (h *Handler) DomainIPUrl(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		common.RespondWithError(w, http.StatusInternalServerError, InternalServerErrorMsg)
 		logger.Error(FailedToReadResponse, slog.Any("error", err))
+
 		return
 	}
 
@@ -230,6 +290,7 @@ func (h *Handler) DomainIPUrl(w http.ResponseWriter, r *http.Request) {
 	if err := json.Unmarshal(body, &apiResponse); err != nil {
 		common.RespondWithError(w, http.StatusInternalServerError, InternalServerErrorMsg)
 		logger.Error(FailedToParseResponse, slog.Any("error", err))
+
 		return
 	}
 
@@ -239,10 +300,54 @@ func (h *Handler) DomainIPUrl(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(w).Encode(apiResponse); err != nil {
 		common.RespondWithError(w, http.StatusInternalServerError, FailedToEncodeResponse)
 		logger.Error(FailedToEncodeResponse, slog.Any("error", err))
+
 		return
 	}
+	//// Начинаем новую транзакцию для вставки и очистки
+	//tx, err = h.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
+	//if err != nil {
+	//	common.RespondWithError(w, http.StatusInternalServerError, ScanURIInternalServerErrorMsg)
+	//	logger.Error("Ошибка при начале транзакции", slog.Any("error", err))
+	//	return
+	//}
+	//defer tx.Rollback()
+	//
+	//// Сохраняем в PostgreSQL с начальным access_count = 1
+	//_, err = tx.ExecContext(ctx, `
+	//    INSERT INTO scan_results (input_type, request, response, access_count, created_at)
+	//    VALUES ($1, $2, $3, 1, NOW())
+	//`, inputType, requestParam, responseData)
+	//if err != nil {
+	//	common.RespondWithError(w, http.StatusInternalServerError, ScanURIInternalServerErrorMsg)
+	//	logger.Error("Ошибка при вставке в PostgreSQL", slog.Any("error", err))
+	//	return
+	//}
+	//
+	//// Проверяем количество записей и очищаем, если превышен лимит
+	//err = h.cleanupLeastPopularRecords(ctx, tx)
+	//if err != nil {
+	//	common.RespondWithError(w, http.StatusInternalServerError, ScanURIInternalServerErrorMsg)
+	//	logger.Error("Ошибка при очистке записей в PostgreSQL", slog.Any("error", err))
+	//	return
+	//}
+	//
+	//// Фиксируем транзакцию
+	//if err := tx.Commit(); err != nil {
+	//	common.RespondWithError(w, http.StatusInternalServerError, ScanURIInternalServerErrorMsg)
+	//	logger.Error("Ошибка при фиксации транзакции", slog.Any("error", err))
+	//	return
+	//}
+	//
+	//// Кэшируем в redis
+	//h.redis.Set(ctx, redisKey, responseData, RedisCacheExpiration)
+	//
+	//// Возвращаем ответ клиенту
+	//w.Header().Set("Content-Type", "application/json")
+	//w.WriteHeader(http.StatusOK)
+	//json.NewEncoder(w).Encode(apiResponse)
+	//logger.Info("Возвращен ответ от Kaspersky API", slog.String("request", requestParam))
 
-	logger.Info("Successfully processed request", slog.String("input", input), slog.String("zone", apiResponse.Zone))
+	logger.Info("Successfully processed request", slog.String("request_param", requestParam), slog.String("zone", apiResponse.Zone))
 }
 
 // ScanFile

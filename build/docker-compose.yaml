@@ -17,14 +17,16 @@ services:
       - backend
 
   postgres:
-    image: postgres:17.0-alpine3.20
+    image: postgres:13
     restart: always
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: minions
+      PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ../db:/docker-entrypoint-initdb.d
     networks:
       - backend
 

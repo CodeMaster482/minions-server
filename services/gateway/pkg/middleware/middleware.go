@@ -7,7 +7,6 @@ import (
 	"time"
 )
 
-// Recovery для восстановления после паники
 func Recovery(logger *slog.Logger) mux.MiddlewareFunc {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -22,7 +21,6 @@ func Recovery(logger *slog.Logger) mux.MiddlewareFunc {
 	}
 }
 
-// Logging для логирования запросов
 func Logging(logger *slog.Logger) mux.MiddlewareFunc {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -39,7 +37,6 @@ func Logging(logger *slog.Logger) mux.MiddlewareFunc {
 	}
 }
 
-// Cors для обработки CORS
 func Cors(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
