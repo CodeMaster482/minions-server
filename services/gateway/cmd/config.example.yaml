@@ -20,5 +20,5 @@ postgres:
 # Конфигурация Redis
 redis:
   addr: "redis:6379"
-  password: ""
+  password: "redis"
   db: 0
