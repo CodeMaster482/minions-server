@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"database/sql"
+
 	"github.com/gorilla/mux"
 	"github.com/redis/go-redis/v9"
 	httpSwagger "github.com/swaggo/http-swagger"
@@ -108,7 +109,7 @@ func run() error {
 	scanPostgresRepo := scanPostgresRepo.New(postgresClient, logger)
 	scanRedisRepo := scanRedisRepo.New(redisClient, logger)
 	scanUsecase := scanUsecase.New(scanPostgresRepo, scanRedisRepo, logger)
-	scan := scanHandlers.New(cfg.Gateway.KasperskyAPIKey, scanUsecase, logger)
+	scan := scanHandlers.New(cfg.Gateway.KasperskyAPIKey, cfg.Gateway.IamToken, cfg.Gateway.FolderID, scanUsecase, logger)
 
 	//=================================================================//
 
@@ -128,7 +129,7 @@ func run() error {
 
 	r.HandleFunc("/scan/uri", scan.DomainIPUrl).Methods(http.MethodGet, http.MethodOptions)
 	r.HandleFunc("/scan/file", scan.ScanFile).Methods(http.MethodPost, http.MethodOptions)
-
+	r.HandleFunc("/screen", scan.ScanScreen).Methods(http.MethodPost, http.MethodOptions)
 	r.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		common.RespondWithError(w, http.StatusNotFound, "Not Found")
 		logger.Warn("Not Found", slog.String("url", r.URL.String()))

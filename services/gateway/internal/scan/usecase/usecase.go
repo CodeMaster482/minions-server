@@ -2,8 +2,10 @@ package usecase
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -11,7 +13,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/CodeMaster482/minions-server/common"
 	"github.com/CodeMaster482/minions-server/services/gateway/internal/scan"
 
 	"github.com/CodeMaster482/minions-server/services/gateway/internal/scan/models"
@@ -20,7 +21,7 @@ import (
 var (
 	ErrCacheMiss       = errors.New("cache miss")
 	ErrRowNotFound     = errors.New("row not found in db")
-	ErrUnsupportedFlow = errors.New("")
+	ErrUnsupportedFlow = errors.New("unsupported request flow")
 )
 
 type Usecase struct {
@@ -67,32 +68,25 @@ func (uc *Usecase) DetermineInputType(input string) (string, error) {
 }
 
 // возвращает слова из запроса OCR без побелов
-func (uc *Usecase) GetTextOCRResponse(OCR models.OCRResponse) ([]string, error) {
-	var texts []string
-	for _, block := range OCR.Result.TextAnnotation.Blocks {
-		for _, line := range block.Lines {
-			for _, alternative := range line.Alternatives {
-				texts = append(texts, strings.TrimSpace(alternative.Text))
-				for _, word := range alternative.Words {
-					texts = append(texts, strings.TrimSpace(word.Text))
-				}
-			}
-		}
+func (uc *Usecase) GetTextOCRResponse(OCR models.ApiResponse) ([]string, error) {
+	re := regexp.MustCompile(`https?://[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]{2,6}`)
+	matches := re.FindAllString(OCR.Result.TextAnnotation.FullText, -1)
+
+	var urls []string
+
+	// Сохраняем URL
+	urls = append(urls, matches...)
+
+	if len(urls) == 0 {
+		return nil, errors.New("couldn't find ioc")
 	}
 
-	words := filterWords(texts)
-
-	if len(words) == 0 {
-		return nil, errors.New("Not found IOC for screenshot")
-	}
-
-	return filterWords(texts)
+	urlsWithoutDub := removeDuplicateStr(urls)
+	return urlsWithoutDub, nil
 }
 
-func (uc *Usecase) RequestKasperskyAPI(ctx context.Context, ioc string) (map[string]interface{}, error) {
-	var apiPath string
-
-	apiPath, err := getIocFlow(ioc)
+func (uc *Usecase) RequestKasperskyAPI(ctx context.Context, ioc string, apiKey string) (*models.ResponseFromAPI, error) {
+	apiPath, err := uc.getIocFlow(ioc)
 	if err != nil {
 		return nil, fmt.Errorf("getIocFlow: %w", err)
 	}
@@ -101,26 +95,43 @@ func (uc *Usecase) RequestKasperskyAPI(ctx context.Context, ioc string) (map[str
 
 	req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
 	if err != nil {
-		return nil,
-			common.RespondWithError(w, http.StatusInternalServerError, InternalServerErrorMsg)
-		logger.Error(FailedToCreateRequest, slog.Any("error", err))
-
-		return nil, nil
+		return nil, err
 	}
 
-	req.Header.Set("x-api-key", h.apiKey)
+	req.Header.Set("x-api-key", apiKey)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-
-		return
+		return nil, err
 	}
+
+	if err != nil || resp.StatusCode != http.StatusOK {
+		return nil, err
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var apiResponse *models.ResponseFromAPI
+	if err := json.Unmarshal(body, &apiResponse); err != nil {
+		return nil, err
+	}
+
 	defer resp.Body.Close()
+
+	return apiResponse, nil
 }
 
-func getIocFlow(inputType string) (string, error) {
-	switch inputType {
+func (uc *Usecase) getIocFlow(inputType string) (string, error) {
+	determineInput, err := uc.DetermineInputType(inputType)
+	if err != nil {
+		return "", fmt.Errorf("uc.DetermineInputType: %w", err)
+	}
+
+	switch determineInput {
 	case "ip":
 		apiPath = "/api/v1/search/ip"
 	case "url":
@@ -228,4 +239,16 @@ func (uc *Usecase) SavedResponse(ctx context.Context, inputType, requestParam st
 	uc.logger.Info("Saved response found")
 
 	return savedResponse, nil
+}
+
+func removeDuplicateStr(strSlice []string) []string {
+	allKeys := make(map[string]bool)
+	list := []string{}
+	for _, item := range strSlice {
+		if _, value := allKeys[item]; !value {
+			allKeys[item] = true
+			list = append(list, item)
+		}
+	}
+	return list
 }

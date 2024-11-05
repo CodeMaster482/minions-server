@@ -13,6 +13,33 @@ import (
 	"github.com/CodeMaster482/minions-server/services/gateway/internal/scan/models"
 )
 
+// DomainIPUrl
+// @Summary Проверка веб-адреса, IP или домена через Kaspersky API
+// @Description Эндпоинт для проверки веб-адреса, IP или домена и получения объединенного ответа с информацией из Kaspersky API.
+// В зависимости от типа входных данных (IPv4, URL или домен), возвращаются соответствующие поля в ответе.
+// @ID domain-check
+// @Tags Scan
+// @Accept json
+// @Produce json
+// @Param request query string true "Веб-адрес, IP или домен для проверки" example(www.example.com)
+// @Success 200 {object} map[string]*models.ResponseFromAPI "Успешная проверка. Возвращается объединенный ответ с информацией."
+// @Failure 400 {object} common.ErrorResponse "Bad Request: Incorrect query."
+// @Failure 404 {object} common.ErrorResponse "Not Found: Lookup results not found."
+// @Failure 500 {object} common.ErrorResponse "Internal Server Error"
+//
+//	@Example 400 Bad Request {
+//	  "Message": "Invalid input"
+//	}
+//
+//	@Example 404 Not Found {
+//	  "Message": "Not Found: Lookup results not found."
+//	}
+//
+//	@Example 500 Internal Server Error {
+//	  "Message": "Internal Server Error"
+//	}
+//
+// @Router /api/scan/uri [get]
 func (h *Handler) ScanScreen(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	logger := h.logger.With(
@@ -84,7 +111,7 @@ func (h *Handler) ScanScreen(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Установка заголовков
-	apiReq.Header.Set("Authorization", fmt.Sprintf("Bearer %s", h.apiKey)) // IAM токен
+	apiReq.Header.Set("Authorization", fmt.Sprintf("Bearer %s", h.iamToken)) // IAM токен
 	apiReq.Header.Set("Content-Type", "application/json")
 	apiReq.Header.Set("x-folder-id", h.folderID)
 	apiReq.Header.Set("x-data-logging-enabled", "true")
@@ -106,8 +133,10 @@ func (h *Handler) ScanScreen(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var ocrResponse models.OCRResponse
+	var ocrResponse models.ApiResponse
 	err = json.Unmarshal([]byte(body), &ocrResponse)
+	logger.Debug("Yandex response", slog.Any("res", ocrResponse))
+
 	if err != nil {
 		common.RespondWithError(w, http.StatusInternalServerError, ScanFileInternalServerErrorMsg)
 		logger.Error(ScanFileInternalServerErrorMsg, slog.Any("error", err))
@@ -115,43 +144,38 @@ func (h *Handler) ScanScreen(w http.ResponseWriter, r *http.Request) {
 	}
 
 	iocs, err := h.usecase.GetTextOCRResponse(ocrResponse)
+	if err != nil {
+		common.RespondWithError(w, http.StatusNotFound, models.ScanScreenNotFoundIOC)
+		logger.Error(ScanFileInternalServerErrorMsg, slog.Any("error", err))
+	}
 
-	switch apiResp.StatusCode {
-	case http.StatusOK:
-		var apiResponse map[string]interface{}
-		if err := json.Unmarshal(body, &apiResponse); err != nil {
-			common.RespondWithError(w, http.StatusInternalServerError, ScanFileInternalServerErrorMsg)
-			logger.Error(ScanFileInternalServerErrorMsg, slog.Any("error", err))
-			return
+	infoIocs := make(map[string]*models.ResponseFromAPI)
+
+	for _, ioc := range iocs {
+		res, err := h.usecase.RequestKasperskyAPI(ctx, ioc, h.apiKey)
+		if err != nil {
+			logger.Warn("Failed to process IOC", slog.Any("ioc", ioc), slog.Any("error", err))
+			continue
 		}
+		infoIocs[ioc] = res
+	}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		if err := json.NewEncoder(w).Encode(apiResponse); err != nil {
-			common.RespondWithError(w, http.StatusInternalServerError, ScanFileInternalServerErrorMsg)
-			logger.Error(ScanFileInternalServerErrorMsg, slog.Any("error", err))
-			return
-		}
-		logger.Info("Successfully processed file OCR", slog.String("filename", filename))
+	if len(infoIocs) > 0 {
+		RespondWithJSON(w, http.StatusOK, infoIocs)
+		logger.Info("Successfully processed IOCs", slog.Int("count", len(infoIocs)))
+	} else {
+		common.RespondWithError(w, http.StatusNotFound, "No IOCs found")
+		logger.Warn("No IOCs were processed successfully")
+	}
 
-	case http.StatusBadRequest:
-		common.RespondWithError(w, http.StatusBadRequest, BadRequestMsg)
-		logger.Error(BadRequestMsg)
-		return
+}
 
-	case http.StatusUnauthorized:
-		common.RespondWithError(w, http.StatusUnauthorized, UnauthorizedMsg)
-		logger.Error(UnauthorizedMsg)
-		return
+// RespondWithJSON отправляет ответ с данными в формате JSON
+func RespondWithJSON(w http.ResponseWriter, statusCode int, data interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
 
-	case http.StatusRequestEntityTooLarge:
-		common.RespondWithError(w, http.StatusRequestEntityTooLarge, ScanFilePayloadTooLargeMsg)
-		logger.Error(ScanFilePayloadTooLargeMsg)
-		return
-
-	default:
-		common.RespondWithError(w, http.StatusInternalServerError, KasperskyUnexpectedError)
-		logger.Error(KasperskyUnexpectedError, slog.Int("status_code", apiResp.StatusCode))
-		return
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }

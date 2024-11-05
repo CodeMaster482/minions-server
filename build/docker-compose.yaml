@@ -37,6 +37,8 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ../db:/docker-entrypoint-initdb.d
+    ports:
+      - 5432:5432
     networks:
       - backend
     healthcheck:
@@ -52,6 +54,8 @@ services:
       - ./redis.conf:/usr/local/etc/redis/redis.conf
       - redisdata:/data
     command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    ports:
+      - 6379:6379
     networks:
       - backend
     healthcheck:

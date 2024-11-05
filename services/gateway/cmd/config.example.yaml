@@ -5,6 +5,8 @@ gateway:
   idle_timeout: 120s
   read_header_timeout: 5s
   kaspersky_api_key: "YOUR_KASPERSKY_API_KEY"
+  iam_token: "YOUR_IAM_TOKEN"
+  folder_id: "YOUR_FOLDER_ID"
   log_format: "json"
   log_file: "/var/log/minions-server.log"
 

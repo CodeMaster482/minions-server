@@ -2,10 +2,11 @@ package main
 
 import (
 	"errors"
-	"gopkg.in/yaml.v3"
 	"log"
 	"os"
 	"time"
+
+	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
@@ -19,6 +20,8 @@ type GatewayConfig struct {
 	IdleTimeout       time.Duration `yaml:"idle_timeout"`
 	ReadHeaderTimeout time.Duration `yaml:"read_header_timeout"`
 	KasperskyAPIKey   string        `yaml:"kaspersky_api_key"`
+	IamToken          string        `yaml:"iam_token"`
+	FolderID          string        `yaml:"folder_id"`
 	LogFormat         string        `yaml:"log_format"`
 	LogFile           string        `yaml:"log_file"`
 }
@@ -46,6 +49,7 @@ func LoadConfig(filename string) (*Config, error) {
 			IdleTimeout:       60 * time.Second,
 			ReadHeaderTimeout: 5 * time.Second,
 			LogFormat:         "json",
+			FolderID:          "ajel4b7rb4q4525ph1am",
 			LogFile:           "", // По умолчанию пустой, значит логи будут только в консоль
 		},
 		Postgres: PostgresConfig{
@@ -103,7 +107,16 @@ func LoadConfig(filename string) (*Config, error) {
 		// Если API-ключ не задан в конфигурации, пытаемся получить его из переменной окружения
 		cfg.Gateway.KasperskyAPIKey = os.Getenv("KASPERSKY_API_KEY")
 		if cfg.Gateway.KasperskyAPIKey == "" {
-			return nil, errors.New("Kaspersky API key is not provided in config file or environment variable")
+			return nil, errors.New("kaspersky API key is not provided in config file or environment variable")
+		}
+	}
+
+	// IAM_TOKEN API Key
+	if cfg.Gateway.IamToken == "" {
+		// Если API-ключ не задан в конфигурации, пытаемся получить его из переменной окружения
+		cfg.Gateway.IamToken = os.Getenv("IAM_TOKEN")
+		if cfg.Gateway.IamToken == "" {
+			return nil, errors.New("kaspersky API key is not provided in config file or environment variable")
 		}
 	}
 

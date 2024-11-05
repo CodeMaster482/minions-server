@@ -8,8 +8,8 @@ import (
 
 type Usecase interface {
 	DetermineInputType(input string) (string, error)
-	GetTextOCRResponse(OCR models.OCRResponse) ([]string, error)
-	RequestKasperskyAPI()
+	GetTextOCRResponse(OCR models.ApiResponse) ([]string, error)
+	RequestKasperskyAPI(ctx context.Context, ioc string, apiKey string) (*models.ResponseFromAPI, error)
 	CachedResponse(ctx context.Context, inputType, requestParam string) (string, error)
 	SetCachedResponse(ctx context.Context, savedResponse, inputType, requestParam string) error
 

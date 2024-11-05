@@ -47,17 +47,20 @@ const (
 )
 
 type Handler struct {
+	iamToken string
 	apiKey   string
 	folderID string
 	usecase  scan.Usecase
 	logger   *slog.Logger
 }
 
-func New(apiKey string, uc scan.Usecase, logger *slog.Logger) *Handler {
+func New(apiKey string, iamToken string, folderID string, uc scan.Usecase, logger *slog.Logger) *Handler {
 	return &Handler{
-		apiKey:  apiKey,
-		usecase: uc,
-		logger:  logger,
+		iamToken: iamToken,
+		folderID: folderID,
+		apiKey:   apiKey,
+		usecase:  uc,
+		logger:   logger,
 	}
 }
 
