@@ -13,16 +13,16 @@ import (
 	"github.com/CodeMaster482/minions-server/services/gateway/internal/scan/models"
 )
 
-// DomainIPUrl
-// @Summary Проверка веб-адреса, IP или домена через Kaspersky API
+// ScanScreen
+// @Summary Проверка веб-адреса, IP или домена из изображений через Kaspersky API
 // @Description Эндпоинт для проверки веб-адреса, IP или домена и получения объединенного ответа с информацией из Kaspersky API.
 // В зависимости от типа входных данных (IPv4, URL или домен), возвращаются соответствующие поля в ответе.
-// @ID domain-check
+// @ID screen-check
 // @Tags Scan
 // @Accept json
 // @Produce json
 // @Param request query string true "Веб-адрес, IP или домен для проверки" example(www.example.com)
-// @Success 200 {object} map[string]*models.ResponseFromAPI "Успешная проверка. Возвращается объединенный ответ с информацией."
+// @Success 200 {object} map[string]models.ResponseFromAPI "Успешная проверка. Возвращается объединенный ответ с информацией."
 // @Failure 400 {object} common.ErrorResponse "Bad Request: Incorrect query."
 // @Failure 404 {object} common.ErrorResponse "Not Found: Lookup results not found."
 // @Failure 500 {object} common.ErrorResponse "Internal Server Error"

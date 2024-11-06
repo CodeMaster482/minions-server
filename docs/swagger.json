@@ -66,6 +66,61 @@
                 }
             }
         },
+        "/api/scan/screen": {
+            "post": {
+                "description": "Эндпоинт для проверки веб-адреса, IP или домена и получения объединенного ответа с информацией из Kaspersky API.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Scan"
+                ],
+                "summary": "Проверка веб-адреса, IP или домена из изображений через Kaspersky API",
+                "operationId": "screen-check",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "www.example.com",
+                        "description": "Веб-адрес, IP или домен для проверки",
+                        "name": "request",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Успешная проверка. Возвращается объединенный ответ с информацией.",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "$ref": "#/definitions/models.ResponseFromAPI"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request: Incorrect query.",
+                        "schema": {
+                            "$ref": "#/definitions/common.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found: Lookup results not found.",
+                        "schema": {
+                            "$ref": "#/definitions/common.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/common.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/scan/uri": {
             "get": {
                 "description": "Эндпоинт для проверки веб-адреса, IP или домена и получения объединенного ответа с информацией из Kaspersky API.",
@@ -134,13 +189,18 @@
             "properties": {
                 "Description": {
                     "description": "Описание автономной системы",
-                    "type": "string",
-                    "example": "Example ISP"
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "[\"Example ISP\"]"
+                    ]
                 },
                 "Number": {
                     "description": "Номер автономной системы",
-                    "type": "string",
-                    "example": "AS12345"
+                    "type": "integer",
+                    "example": 25513
                 }
             }
         },

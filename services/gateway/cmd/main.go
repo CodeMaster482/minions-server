@@ -55,7 +55,7 @@ func run() error {
 	}
 
 	var handlerOptions = &slog.HandlerOptions{
-		Level: slog.LevelInfo,
+		Level: slog.LevelDebug,
 	}
 
 	var logger *slog.Logger
