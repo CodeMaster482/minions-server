@@ -39,7 +39,7 @@ import (
 //	  "Message": "Internal Server Error"
 //	}
 //
-// @Router /api/scan/uri [get]
+// @Router /api/scan/screen [post]
 func (h *Handler) ScanScreen(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	logger := h.logger.With(

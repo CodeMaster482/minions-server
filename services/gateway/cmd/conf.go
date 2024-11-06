@@ -116,7 +116,7 @@ func LoadConfig(filename string) (*Config, error) {
 		// Если API-ключ не задан в конфигурации, пытаемся получить его из переменной окружения
 		cfg.Gateway.IamToken = os.Getenv("IAM_TOKEN")
 		if cfg.Gateway.IamToken == "" {
-			return nil, errors.New("kaspersky API key is not provided in config file or environment variable")
+			return nil, errors.New("yandex API key is not provided in config file or environment variable")
 		}
 	}
 

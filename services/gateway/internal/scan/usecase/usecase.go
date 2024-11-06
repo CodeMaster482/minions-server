@@ -241,6 +241,24 @@ func (uc *Usecase) SavedResponse(ctx context.Context, inputType, requestParam st
 	return savedResponse, nil
 }
 
+func (uc *Usecase) SaveResponse(ctx context.Context, respJson, inputType, requestParam string) error {
+	uc.logger.Debug("Attempting to save response",
+		slog.String("input_type", inputType),
+		slog.String("request_param", requestParam),
+	)
+
+	err := uc.postgresRepo.SaveResponse(ctx, respJson, inputType, requestParam)
+	if err != nil {
+		uc.logger.Error("Error retrieving saved response",
+			slog.Any("error", err),
+		)
+
+		return errors.Join(ErrRowNotFound, fmt.Errorf("failed to get saved response: %w", err))
+	}
+
+	return nil
+}
+
 func removeDuplicateStr(strSlice []string) []string {
 	allKeys := make(map[string]bool)
 	list := []string{}

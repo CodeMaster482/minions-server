@@ -13,8 +13,8 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ../services/gateway/cmd/config.yaml:/app/config.yaml
-      - ../services/gateway/logs:/var/log
+      - ../services/gateway/cmd/config.example.yaml:/app/config.yaml
+      - app_logs:/var/log
     command: ["./minions-server", "-c", "/app/config.yaml"]
     networks:
       - backend
@@ -26,6 +26,14 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=minions
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1024M
+        reservations:
+          cpus: '1'
+          memory: 512M
 
   postgres:
     image: postgres:13
@@ -38,8 +46,8 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ../db:/docker-entrypoint-initdb.d
-    ports:
-      - 5432:5432
+#    ports:
+#      - "5432:5432"
     networks:
       - backend
     healthcheck:
@@ -47,6 +55,11 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 1536M
 
   redis:
     image: redis:7.4.1-alpine3.20
@@ -55,8 +68,8 @@ services:
       - ./redis.conf:/usr/local/etc/redis/redis.conf
       - redisdata:/data
     command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
-    ports:
-      - 6379:6379
+#    ports:
+#      - "6379:6379"
     networks:
       - backend
     healthcheck:
@@ -64,10 +77,29 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
 
 volumes:
   pgdata:
+    driver_opts:
+      type: none
+      device: /mnt/data/postgres
+      o: bind
   redisdata:
+    driver_opts:
+      type: none
+      device: /mnt/data/redis
+      o: bind
+  app_logs:
+    driver_opts:
+      type: none
+      device: /mnt/logs/app
+      o: bind
 
 networks:
   backend:
+    driver: bridge

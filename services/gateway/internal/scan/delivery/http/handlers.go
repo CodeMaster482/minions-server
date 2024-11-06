@@ -302,55 +302,26 @@ func (h *Handler) DomainIPUrl(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 
-	if err := json.NewEncoder(w).Encode(apiResponse); err != nil {
+	respJson, err := json.Marshal(apiResponse)
+	if err != nil {
 		common.RespondWithError(w, http.StatusInternalServerError, FailedToEncodeResponse)
 		logger.Error(FailedToEncodeResponse, slog.Any("error", err))
 
 		return
 	}
-	//// Начинаем новую транзакцию для вставки и очистки
-	//tx, err = h.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
-	//if err != nil {
-	//	common.RespondWithError(w, http.StatusInternalServerError, ScanURIInternalServerErrorMsg)
-	//	logger.Error("Ошибка при начале транзакции", slog.Any("error", err))
-	//	return
-	//}
-	//defer tx.Rollback()
-	//
-	//// Сохраняем в PostgreSQL с начальным access_count = 1
-	//_, err = tx.ExecContext(ctx, `
-	//    INSERT INTO scan_results (input_type, request, response, access_count, created_at)
-	//    VALUES ($1, $2, $3, 1, NOW())
-	//`, inputType, requestParam, responseData)
-	//if err != nil {
-	//	common.RespondWithError(w, http.StatusInternalServerError, ScanURIInternalServerErrorMsg)
-	//	logger.Error("Ошибка при вставке в PostgreSQL", slog.Any("error", err))
-	//	return
-	//}
-	//
-	//// Проверяем количество записей и очищаем, если превышен лимит
-	//err = h.cleanupLeastPopularRecords(ctx, tx)
-	//if err != nil {
-	//	common.RespondWithError(w, http.StatusInternalServerError, ScanURIInternalServerErrorMsg)
-	//	logger.Error("Ошибка при очистке записей в PostgreSQL", slog.Any("error", err))
-	//	return
-	//}
-	//
-	//// Фиксируем транзакцию
-	//if err := tx.Commit(); err != nil {
-	//	common.RespondWithError(w, http.StatusInternalServerError, ScanURIInternalServerErrorMsg)
-	//	logger.Error("Ошибка при фиксации транзакции", slog.Any("error", err))
-	//	return
-	//}
-	//
-	//// Кэшируем в redis
-	//h.redis.Set(ctx, redisKey, responseData, RedisCacheExpiration)
-	//
-	//// Возвращаем ответ клиенту
-	//w.Header().Set("Content-Type", "application/json")
-	//w.WriteHeader(http.StatusOK)
-	//json.NewEncoder(w).Encode(apiResponse)
-	//logger.Info("Возвращен ответ от Kaspersky API", slog.String("request", requestParam))
+
+	w.Write(respJson)
+
+	err = h.usecase.SaveResponse(ctx, string(respJson), inputType, requestParam)
+	if err != nil {
+		logger.Warn("Ошибка при вставке в PostgreSQL", slog.Any("error", err))
+		return
+	}
+
+	err = h.usecase.SetCachedResponse(ctx, string(respJson), inputType, requestParam)
+	if err != nil {
+		logger.Warn("Cache is not updated in Redis", slog.Any("error", err))
+	}
 
 	logger.Info("Successfully processed request", slog.String("request_param", requestParam), slog.String("zone", apiResponse.Zone))
 }
