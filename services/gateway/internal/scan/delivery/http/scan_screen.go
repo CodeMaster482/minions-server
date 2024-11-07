@@ -14,28 +14,35 @@ import (
 )
 
 // ScanScreen
-// @Summary Проверка веб-адреса, IP или домена из изображений через Kaspersky API
-// @Description Эндпоинт для проверки веб-адреса, IP или домена и получения объединенного ответа с информацией из Kaspersky API.
+// @Summary Проверка веб-адреса, IP или домена из изображения через Kaspersky API
+// @Description Эндпоинт для загрузки изображения, извлечения текста, поиска веб-адресов, IP и доменов, и получения ответа с информацией из Kaspersky API.
 // В зависимости от типа входных данных (IPv4, URL или домен), возвращаются соответствующие поля в ответе.
 // @ID screen-check
 // @Tags Scan
-// @Accept json
+// @Accept multipart/form-data
 // @Produce json
-// @Param request query string true "Веб-адрес, IP или домен для проверки" example(www.example.com)
+// @Param file formData file true "Изображение, содержащее веб-адрес, IP или домен для проверки"
 // @Success 200 {object} map[string]models.ResponseFromAPI "Успешная проверка. Возвращается объединенный ответ с информацией."
-// @Failure 400 {object} common.ErrorResponse "Bad Request: Incorrect query."
+// @Failure 400 {object} common.ErrorResponse "Bad Request: Incorrect file upload or processing error."
+// @Failure 413 {object} common.ErrorResponse "Payload Too Large: File size exceeds the limit."
 // @Failure 404 {object} common.ErrorResponse "Not Found: Lookup results not found."
 // @Failure 500 {object} common.ErrorResponse "Internal Server Error"
 //
-//	@Example 400 Bad Request {
+// @Example 400 Bad Request
+//
+//	{
 //	  "Message": "Invalid input"
 //	}
 //
-//	@Example 404 Not Found {
+// @Example 404 Not Found
+//
+//	{
 //	  "Message": "Not Found: Lookup results not found."
 //	}
 //
-//	@Example 500 Internal Server Error {
+// @Example 500 Internal Server Error
+//
+//	{
 //	  "Message": "Internal Server Error"
 //	}
 //

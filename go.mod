@@ -13,6 +13,10 @@ require (
 require (
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
+	golang.org/x/mod v0.21.0 // indirect
+	golang.org/x/sync v0.8.0 // indirect
+	mvdan.cc/xurls v1.1.0 // indirect
+	mvdan.cc/xurls/v2 v2.5.0 // indirect
 )
 
 require (

@@ -441,17 +441,16 @@ paths:
   /api/scan/screen:
     post:
       consumes:
-      - application/json
-      description: Эндпоинт для проверки веб-адреса, IP или домена и получения объединенного
-        ответа с информацией из Kaspersky API.
+      - multipart/form-data
+      description: Эндпоинт для загрузки изображения, извлечения текста, поиска веб-адресов,
+        IP и доменов, и получения ответа с информацией из Kaspersky API.
       operationId: screen-check
       parameters:
-      - description: Веб-адрес, IP или домен для проверки
-        example: www.example.com
-        in: query
-        name: request
+      - description: Изображение, содержащее веб-адрес, IP или домен для проверки
+        in: formData
+        name: file
         required: true
-        type: string
+        type: file
       produces:
       - application/json
       responses:
@@ -462,18 +461,22 @@ paths:
               $ref: '#/definitions/models.ResponseFromAPI'
             type: object
         "400":
-          description: 'Bad Request: Incorrect query.'
+          description: 'Bad Request: Incorrect file upload or processing error.'
           schema:
             $ref: '#/definitions/common.ErrorResponse'
         "404":
           description: 'Not Found: Lookup results not found.'
           schema:
             $ref: '#/definitions/common.ErrorResponse'
+        "413":
+          description: 'Payload Too Large: File size exceeds the limit.'
+          schema:
+            $ref: '#/definitions/common.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/common.ErrorResponse'
-      summary: Проверка веб-адреса, IP или домена из изображений через Kaspersky API
+      summary: Проверка веб-адреса, IP или домена из изображения через Kaspersky API
       tags:
       - Scan
   /api/scan/uri:

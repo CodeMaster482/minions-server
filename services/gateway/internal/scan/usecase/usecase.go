@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/CodeMaster482/minions-server/services/gateway/internal/scan"
+	"mvdan.cc/xurls"
 
 	"github.com/CodeMaster482/minions-server/services/gateway/internal/scan/models"
 )
@@ -69,8 +70,9 @@ func (uc *Usecase) DetermineInputType(input string) (string, error) {
 
 // возвращает слова из запроса OCR без побелов
 func (uc *Usecase) GetTextOCRResponse(OCR models.ApiResponse) ([]string, error) {
-	re := regexp.MustCompile(`https?://[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]{2,6}`)
-	matches := re.FindAllString(OCR.Result.TextAnnotation.FullText, -1)
+	rxRelaxed := xurls.Strict
+	withoutString := strings.ReplaceAll(OCR.Result.TextAnnotation.FullText, " ", "")
+	matches := rxRelaxed.FindAllString(withoutString, -1)
 
 	var urls []string
 
