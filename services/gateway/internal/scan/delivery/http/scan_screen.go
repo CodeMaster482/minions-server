@@ -154,6 +154,7 @@ func (h *Handler) ScanScreen(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		common.RespondWithError(w, http.StatusNotFound, models.ScanScreenNotFoundIOC)
 		logger.Error(ScanFileInternalServerErrorMsg, slog.Any("error", err))
+		return
 	}
 
 	infoIocs := make(map[string]*models.ResponseFromAPI)
