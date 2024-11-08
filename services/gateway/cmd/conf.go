@@ -24,6 +24,7 @@ type GatewayConfig struct {
 	FolderID          string        `yaml:"folder_id"`
 	LogFormat         string        `yaml:"log_format"`
 	LogFile           string        `yaml:"log_file"`
+	SessionConfig     SessionConfig `yaml:"session"`
 }
 type PostgresConfig struct {
 	Host     string `yaml:"host"`
@@ -38,6 +39,13 @@ type RedisConfig struct {
 	Addr     string `yaml:"addr"`
 	Password string `yaml:"password"`
 	DB       int    `yaml:"db"`
+}
+
+type SessionConfig struct {
+	CookieSecure       bool          `yaml:"cookie_secure"`
+	CSRFKey            string        `yaml:"csrf_key"`
+	SessionLifetime    time.Duration `yaml:"session_lifetime"`
+	SessionIdleTimeout time.Duration `yaml:"session_idle_timeout"`
 }
 
 // LoadConfig загружает конфигурацию из YAML-файла и устанавливает дефолтные значения, если они не заданы

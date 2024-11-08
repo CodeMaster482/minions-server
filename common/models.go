@@ -5,3 +5,9 @@ type ErrorResponse struct {
 	// Сообщение об ошибке
 	Message string `json:"message"`
 }
+
+type User struct {
+	Username string `json:"username"`
+	ID       string `json:"id"`
+	Password string `json:"password"`
+}

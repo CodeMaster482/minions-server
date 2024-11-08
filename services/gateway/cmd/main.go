@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/alexedwards/scs/v2"
 	"io"
 	"log/slog"
 	"net/http"
@@ -16,17 +17,25 @@ import (
 	"database/sql"
 
 	"github.com/gorilla/mux"
-	"github.com/redis/go-redis/v9"
+	//"github.com/redis/go-redis/v9"
 	httpSwagger "github.com/swaggo/http-swagger"
 	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/CodeMaster482/minions-server/common"
 	_ "github.com/CodeMaster482/minions-server/docs"
+
 	scanHandlers "github.com/CodeMaster482/minions-server/services/gateway/internal/scan/delivery/http"
 	scanPostgresRepo "github.com/CodeMaster482/minions-server/services/gateway/internal/scan/repo/postgres"
 	scanRedisRepo "github.com/CodeMaster482/minions-server/services/gateway/internal/scan/repo/redis"
 	scanUsecase "github.com/CodeMaster482/minions-server/services/gateway/internal/scan/usecase"
+
+	authHandlers "github.com/CodeMaster482/minions-server/services/gateway/internal/auth/delivery/http"
+	authRepo "github.com/CodeMaster482/minions-server/services/gateway/internal/auth/repo"
+	authUsecase "github.com/CodeMaster482/minions-server/services/gateway/internal/auth/usecase"
+
 	"github.com/CodeMaster482/minions-server/services/gateway/pkg/middleware"
+	"github.com/alexedwards/scs/redisstore"
+	"github.com/gomodule/redigo/redis"
 	_ "github.com/lib/pq"
 )
 
@@ -96,18 +105,26 @@ func run() error {
 
 	//=================================================================//
 
-	redisClient, err := initRedis(cfg.Redis)
-	if err != nil {
-		slog.Error("init Redis failed", slog.Any("error", err))
+	redisPool := initRedisPool(cfg.Redis)
+	defer redisPool.Close()
 
+	//=================================================================//
+
+	sessionManager, err := initSessionManager(cfg.Gateway.SessionConfig, redisPool)
+	if err != nil {
 		return err
 	}
-	defer redisClient.Close()
+
+	//=================================================================//
+
+	authRepo := authRepo.New(postgresClient, logger)
+	authUsecase := authUsecase.New(authRepo, logger)
+	auth := authHandlers.New(authUsecase, sessionManager, logger)
 
 	//=================================================================//
 
 	scanPostgresRepo := scanPostgresRepo.New(postgresClient, logger)
-	scanRedisRepo := scanRedisRepo.New(redisClient, logger)
+	scanRedisRepo := scanRedisRepo.New(redisPool, logger)
 	scanUsecase := scanUsecase.New(scanPostgresRepo, scanRedisRepo, logger)
 	scan := scanHandlers.New(cfg.Gateway.KasperskyAPIKey, cfg.Gateway.IamToken, cfg.Gateway.FolderID, scanUsecase, logger)
 
@@ -115,10 +132,12 @@ func run() error {
 
 	r := mux.NewRouter().PathPrefix("/api").Subrouter()
 
+	mw := middleware.New(sessionManager)
+
 	r.Use(
-		middleware.Recovery(logger),
-		middleware.Cors,
-		middleware.Logging(logger),
+		mw.Recovery(logger),
+		mw.Cors,
+		mw.Logging(logger),
 	)
 
 	r.PathPrefix("/swagger/").Handler(httpSwagger.Handler(
@@ -127,9 +146,21 @@ func run() error {
 		httpSwagger.DomID("swagger-ui"),
 	))
 
-	r.HandleFunc("/scan/uri", scan.DomainIPUrl).Methods(http.MethodGet, http.MethodOptions)
-	r.HandleFunc("/scan/file", scan.ScanFile).Methods(http.MethodPost, http.MethodOptions)
-	r.HandleFunc("/scan/screen", scan.ScanScreen).Methods(http.MethodPost, http.MethodOptions)
+	authRouter := r.PathPrefix("/").Subrouter()
+	authRouter.Use(mw.RequireAuthentication)
+
+	{
+		r.HandleFunc("/login", auth.Login).Methods(http.MethodPost, http.MethodOptions)
+		r.HandleFunc("/register", auth.Register).Methods(http.MethodPost, http.MethodOptions)
+		authRouter.HandleFunc("/logout", auth.Logout).Methods(http.MethodPost, http.MethodOptions)
+	}
+
+	{
+		authRouter.HandleFunc("/scan/uri", scan.DomainIPUrl).Methods(http.MethodGet, http.MethodOptions)
+		authRouter.HandleFunc("/scan/file", scan.ScanFile).Methods(http.MethodPost, http.MethodOptions)
+		authRouter.HandleFunc("/scan/screen", scan.ScanScreen).Methods(http.MethodPost, http.MethodOptions)
+	}
+
 	r.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		common.RespondWithError(w, http.StatusNotFound, "Not Found")
 		logger.Warn("Not Found", slog.String("url", r.URL.String()))
@@ -195,20 +226,39 @@ func initPostgres(cfg PostgresConfig) (*sql.DB, error) {
 	return db, nil
 }
 
-func initRedis(cfg RedisConfig) (*redis.Client, error) {
-	options := &redis.Options{
-		Addr:     cfg.Addr,
-		Password: cfg.Password,
-		DB:       cfg.DB,
+func initRedisPool(cfg RedisConfig) *redis.Pool {
+	return &redis.Pool{
+		MaxIdle:     10,                // Максимальное количество idle соединений
+		MaxActive:   100,               // Максимальное количество активных соединений
+		IdleTimeout: 240 * time.Second, // Таймаут для idle соединений
+		Dial: func() (redis.Conn, error) {
+			c, err := redis.Dial("tcp", cfg.Addr,
+				redis.DialPassword(cfg.Password),
+				redis.DialDatabase(cfg.DB))
+			if err != nil {
+				return nil, err
+			}
+			return c, err
+		},
+		TestOnBorrow: func(c redis.Conn, t time.Time) error {
+			if time.Since(t) < time.Minute {
+				return nil
+			}
+			_, err := c.Do("PING")
+			return err
+		},
 	}
+}
 
-	client := redis.NewClient(options)
+func initSessionManager(cfgSession SessionConfig, redisClient *redis.Pool) (*scs.SessionManager, error) {
+	sessionManager := scs.New()
+	sessionManager.Store = redisstore.New(redisClient)
+	sessionManager.Cookie.Name = "session_id"
+	sessionManager.Cookie.HttpOnly = true
+	sessionManager.Cookie.Secure = cfgSession.CookieSecure
+	sessionManager.Cookie.SameSite = http.SameSiteLaxMode
+	sessionManager.Lifetime = cfgSession.SessionLifetime
+	sessionManager.IdleTimeout = cfgSession.SessionIdleTimeout
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	if _, err := client.Ping(ctx).Result(); err != nil {
-		return nil, err
-	}
-
-	return client, nil
+	return sessionManager, nil
 }
