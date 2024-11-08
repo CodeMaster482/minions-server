@@ -45,10 +45,11 @@ func (r *Repo) CreateUser(ctx context.Context, u common.User) error {
 
 func (r *Repo) GetUserByUsername(ctx context.Context, username string) (*common.User, error) {
 	u := &common.User{}
-	err := r.db.QueryRowContext(ctx, GetUserByName, username).Scan(u.ID, u.Username, u.Password)
+	err := r.db.QueryRowContext(ctx, GetUserByName, username).Scan(&u.ID, &u.Username, &u.Password)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil
+			r.logger.Error("User not found", slog.Any("error", err))
+			return nil, err
 		}
 
 		r.logger.Error("Failed to get user by username", slog.Any("error", err))

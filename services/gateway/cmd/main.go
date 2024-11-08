@@ -138,6 +138,7 @@ func run() error {
 		mw.Recovery(logger),
 		mw.Cors,
 		mw.Logging(logger),
+		sessionManager.LoadAndSave,
 	)
 
 	r.PathPrefix("/swagger/").Handler(httpSwagger.Handler(
@@ -150,9 +151,9 @@ func run() error {
 	authRouter.Use(mw.RequireAuthentication)
 
 	{
-		r.HandleFunc("/login", auth.Login).Methods(http.MethodPost, http.MethodOptions)
-		r.HandleFunc("/register", auth.Register).Methods(http.MethodPost, http.MethodOptions)
-		authRouter.HandleFunc("/logout", auth.Logout).Methods(http.MethodPost, http.MethodOptions)
+		r.HandleFunc("/auth/login", auth.Login).Methods(http.MethodPost, http.MethodOptions)
+		r.HandleFunc("/auth/register", auth.Register).Methods(http.MethodPost, http.MethodOptions)
+		authRouter.HandleFunc("/auth/logout", auth.Logout).Methods(http.MethodPost, http.MethodOptions)
 	}
 
 	{

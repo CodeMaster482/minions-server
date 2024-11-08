@@ -8,6 +8,6 @@ type ErrorResponse struct {
 
 type User struct {
 	Username string `json:"username"`
-	ID       string `json:"id"`
+	ID       int    `json:"id"`
 	Password string `json:"password"`
 }
