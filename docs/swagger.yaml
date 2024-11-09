@@ -342,6 +342,20 @@ definitions:
         example: http://malicious.example.com
         type: string
     type: object
+  models.UserCredentials:
+    properties:
+      password:
+        maxLength: 100
+        minLength: 6
+        type: string
+      username:
+        maxLength: 50
+        minLength: 3
+        type: string
+    required:
+    - password
+    - username
+    type: object
   models.WhoIsInfo:
     properties:
       Contacts:
@@ -398,6 +412,98 @@ info:
   description: API server for Minions.
   title: Minions API
 paths:
+  /api/auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Эндпоинт для аутентификации пользователя с указанием имени пользователя
+        и пароля
+      operationId: auth-login
+      parameters:
+      - description: Учетные данные пользователя для входа
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.UserCredentials'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Успешный вход пользователя
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: 'Bad Request: Invalid input'
+          schema:
+            $ref: '#/definitions/common.ErrorResponse'
+        "401":
+          description: 'Unauthorized: Invalid credentials'
+          schema:
+            $ref: '#/definitions/common.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/common.ErrorResponse'
+      summary: Вход пользователя
+      tags:
+      - Auth
+  /api/auth/logout:
+    post:
+      consumes:
+      - application/json
+      description: Эндпоинт для выхода пользователя и уничтожения его сессии
+      operationId: auth-logout
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Успешный выход пользователя
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 'Internal Server Error: Failed to logout'
+          schema:
+            $ref: '#/definitions/common.ErrorResponse'
+      summary: Выход пользователя
+      tags:
+      - Auth
+  /api/auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Эндпоинт для регистрации нового пользователя с указанием имени
+        пользователя и пароля
+      operationId: auth-register
+      parameters:
+      - description: Учетные данные пользователя для регистрации
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.UserCredentials'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Пользователь успешно зарегистрирован
+          schema:
+            type: string
+        "400":
+          description: 'Bad Request: Invalid input'
+          schema:
+            $ref: '#/definitions/common.ErrorResponse'
+        "500":
+          description: 'Internal Server Error: Failed to register'
+          schema:
+            $ref: '#/definitions/common.ErrorResponse'
+      summary: Регистрация нового пользователя
+      tags:
+      - Auth
   /api/scan/file:
     post:
       consumes:
