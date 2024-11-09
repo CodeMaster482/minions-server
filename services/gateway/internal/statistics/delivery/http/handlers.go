@@ -58,7 +58,7 @@ func (h *Handler) TopLinks(w http.ResponseWriter, r *http.Request) {
 
 	// Создаем страницу и добавляем на нее графики
 	page := components.NewPage()
-	page.PageTitle = "Top 5 Popular Links by Zone"
+	page.PageTitle = "Топ 5 ссылок по зонам"
 	page.Layout = components.PageFlexLayout // Устанавливаем горизонтальное расположение
 	page.AddCharts(redChart, greenChart)
 
@@ -91,8 +91,7 @@ func createBarChart(topLinks map[string][]models.LinkStat) (*charts.Bar, *charts
 			Theme:  types.ThemeChalk,
 		}),
 		charts.WithTitleOpts(opts.Title{
-			Title:    "Top 5 Red Zone Links",
-			Subtitle: "Based on Access Count",
+			Title: "Топ 5 популярных вредоносных ссылок",
 		}),
 		charts.WithTooltipOpts(opts.Tooltip{
 			Show: opts.Bool(true),
@@ -133,8 +132,7 @@ func createBarChart(topLinks map[string][]models.LinkStat) (*charts.Bar, *charts
 			Theme:  types.ThemeChalk,
 		}),
 		charts.WithTitleOpts(opts.Title{
-			Title:    "Top 5 Green Zone Links",
-			Subtitle: "Based on Access Count",
+			Title: "Топ 5 безопасных ссылок",
 		}),
 		charts.WithTooltipOpts(opts.Tooltip{
 			Show: opts.Bool(true),

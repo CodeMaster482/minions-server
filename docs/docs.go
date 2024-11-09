@@ -322,6 +322,33 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/api/statistics/top-links": {
+            "get": {
+                "description": "Отображает топ-5 популярных ссылок с зонами \"Red\" и \"Green\" в виде анимированного графика",
+                "produces": [
+                    "text/html"
+                ],
+                "tags": [
+                    "Statistics"
+                ],
+                "summary": "Статистика топ-5 популярных ссылок",
+                "operationId": "top-links",
+                "responses": {
+                    "200": {
+                        "description": "HTML with embedded chart",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/common.ErrorResponse"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {

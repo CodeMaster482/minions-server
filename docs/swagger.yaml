@@ -621,4 +621,23 @@ paths:
       summary: Проверка веб-адреса, IP или домена через Kaspersky API
       tags:
       - Scan
+  /api/statistics/top-links:
+    get:
+      description: Отображает топ-5 популярных ссылок с зонами "Red" и "Green" в виде
+        анимированного графика
+      operationId: top-links
+      produces:
+      - text/html
+      responses:
+        "200":
+          description: HTML with embedded chart
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/common.ErrorResponse'
+      summary: Статистика топ-5 популярных ссылок
+      tags:
+      - Statistics
 swagger: "2.0"
