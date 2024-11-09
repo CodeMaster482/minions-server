@@ -153,13 +153,13 @@ func run() error {
 	{
 		r.HandleFunc("/auth/login", auth.Login).Methods(http.MethodPost, http.MethodOptions)
 		r.HandleFunc("/auth/register", auth.Register).Methods(http.MethodPost, http.MethodOptions)
-		authRouter.HandleFunc("/auth/logout", auth.Logout).Methods(http.MethodPost, http.MethodOptions)
+		r.HandleFunc("/auth/logout", auth.Logout).Methods(http.MethodPost, http.MethodOptions)
 	}
 
 	{
-		authRouter.HandleFunc("/scan/uri", scan.DomainIPUrl).Methods(http.MethodGet, http.MethodOptions)
-		authRouter.HandleFunc("/scan/file", scan.ScanFile).Methods(http.MethodPost, http.MethodOptions)
-		authRouter.HandleFunc("/scan/screen", scan.ScanScreen).Methods(http.MethodPost, http.MethodOptions)
+		r.HandleFunc("/scan/uri", scan.DomainIPUrl).Methods(http.MethodGet, http.MethodOptions)
+		r.HandleFunc("/scan/file", scan.ScanFile).Methods(http.MethodPost, http.MethodOptions)
+		r.HandleFunc("/scan/screen", scan.ScanScreen).Methods(http.MethodPost, http.MethodOptions)
 	}
 
 	r.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

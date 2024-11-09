@@ -173,6 +173,7 @@ func (h *Handler) DomainIPUrl(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		// Если найдено в redis, возвращаем кэшированный ответ
 		if err := json.Unmarshal([]byte(cachedResponse), &response); err == nil {
+			w.WriteHeader(http.StatusOK)
 			w.Header().Set("Content-Type", "application/json")
 			err := json.NewEncoder(w).Encode(response)
 			if err != nil {
@@ -181,7 +182,6 @@ func (h *Handler) DomainIPUrl(w http.ResponseWriter, r *http.Request) {
 
 				return
 			}
-			w.WriteHeader(http.StatusOK)
 
 			logger.Info("Returning cached response from redis", slog.String("request", requestParam))
 
@@ -200,6 +200,7 @@ func (h *Handler) DomainIPUrl(w http.ResponseWriter, r *http.Request) {
 				logger.Warn("Cache is not updated in Redis", slog.Any("error", err))
 			}
 
+			w.WriteHeader(http.StatusOK)
 			w.Header().Set("Content-Type", "application/json")
 			err = json.NewEncoder(w).Encode(response)
 			if err != nil {
@@ -209,7 +210,6 @@ func (h *Handler) DomainIPUrl(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			w.WriteHeader(http.StatusOK)
 			logger.Info("Response from db was successfully found", slog.String("request", requestParam))
 
 			return
