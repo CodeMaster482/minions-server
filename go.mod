@@ -5,9 +5,9 @@ go 1.23.2
 require (
 	github.com/alexedwards/scs/redisstore v0.0.0-20240316134038-7e11d57e8885
 	github.com/alexedwards/scs/v2 v2.8.0
+	github.com/go-echarts/go-echarts/v2 v2.4.4
 	github.com/go-playground/validator/v10 v10.22.1
 	github.com/gomodule/redigo v2.0.0+incompatible
-	github.com/gorilla/csrf v1.7.2
 	github.com/gorilla/mux v1.8.1
 	github.com/lib/pq v1.10.9
 	github.com/swaggo/http-swagger v1.3.4
@@ -20,7 +20,6 @@ require (
 	github.com/gabriel-vasile/mimetype v1.4.3 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
-	github.com/gorilla/securecookie v1.1.2 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/mvdan/xurls v1.1.0 // indirect
 	golang.org/x/sys v0.26.0 // indirect

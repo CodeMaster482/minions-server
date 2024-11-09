@@ -175,13 +175,16 @@ func (h *Handler) DomainIPUrl(w http.ResponseWriter, r *http.Request) {
 		if err := json.Unmarshal([]byte(cachedResponse), &response); err == nil {
 			w.WriteHeader(http.StatusOK)
 			w.Header().Set("Content-Type", "application/json")
-			err := json.NewEncoder(w).Encode(response)
+			err = json.NewEncoder(w).Encode(response)
 			if err != nil {
 				common.RespondWithError(w, http.StatusInternalServerError, FailedToEncodeResponse)
 				logger.Error(FailedToEncodeResponse, slog.Any("error", err))
 
 				return
 			}
+
+			_, err := h.usecase.SavedResponse(ctx, inputType, requestParam)
+			slog.Warn("Cant updated count in postgres", err)
 
 			logger.Info("Returning cached response from redis", slog.String("request", requestParam))
 

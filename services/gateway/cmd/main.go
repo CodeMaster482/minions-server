@@ -17,7 +17,6 @@ import (
 	"database/sql"
 
 	"github.com/gorilla/mux"
-	//"github.com/redis/go-redis/v9"
 	httpSwagger "github.com/swaggo/http-swagger"
 	"gopkg.in/natefinch/lumberjack.v2"
 
@@ -32,6 +31,10 @@ import (
 	authHandlers "github.com/CodeMaster482/minions-server/services/gateway/internal/auth/delivery/http"
 	authRepo "github.com/CodeMaster482/minions-server/services/gateway/internal/auth/repo"
 	authUsecase "github.com/CodeMaster482/minions-server/services/gateway/internal/auth/usecase"
+
+	statisticsHandlers "github.com/CodeMaster482/minions-server/services/gateway/internal/statistics/delivery/http"
+	statisticsRepo "github.com/CodeMaster482/minions-server/services/gateway/internal/statistics/repo"
+	statisticsUsecase "github.com/CodeMaster482/minions-server/services/gateway/internal/statistics/usecase"
 
 	"github.com/CodeMaster482/minions-server/services/gateway/pkg/middleware"
 	"github.com/alexedwards/scs/redisstore"
@@ -123,6 +126,12 @@ func run() error {
 
 	//=================================================================//
 
+	statisticsRepo := statisticsRepo.New(postgresClient, logger)
+	statisticsUsecase := statisticsUsecase.New(statisticsRepo, logger)
+	stat := statisticsHandlers.New(statisticsUsecase, logger)
+
+	//=================================================================//
+
 	scanPostgresRepo := scanPostgresRepo.New(postgresClient, logger)
 	scanRedisRepo := scanRedisRepo.New(redisPool, logger)
 	scanUsecase := scanUsecase.New(scanPostgresRepo, scanRedisRepo, logger)
@@ -149,6 +158,10 @@ func run() error {
 
 	authRouter := r.PathPrefix("/").Subrouter()
 	authRouter.Use(mw.RequireAuthentication)
+
+	{
+		r.HandleFunc("/statistics/top-links", stat.TopLinks).Methods(http.MethodGet, http.MethodOptions)
+	}
 
 	{
 		r.HandleFunc("/auth/login", auth.Login).Methods(http.MethodPost, http.MethodOptions)
