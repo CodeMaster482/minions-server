@@ -1,7 +1,7 @@
 # Makefile
 
 # Переменные для путей
-DOCKER_COMPOSE_PATH=build/docker-compose.yml
+DOCKER_COMPOSE_PATH=build/docker-compose.yaml
 SWAGGER_PATH=./services/gateway/cmd/main.go
 
 # Команда для запуска docker-compose с пересборкой
