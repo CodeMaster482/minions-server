@@ -2,10 +2,10 @@ package http
 
 import (
 	"bytes"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/CodeMaster482/minions-server/services/gateway/internal/scan/usecase"
 	"io"
 	"log/slog"
 	"net/http"
@@ -195,31 +195,35 @@ func (h *Handler) DomainIPUrl(w http.ResponseWriter, r *http.Request) {
 
 	// Ищем в postgres
 	savedResponse, err := h.usecase.SavedResponse(ctx, inputType, requestParam)
-	if err != nil {
-		// Если найдено в PostgreSQL, обновляем redis и возвращаем ответ
-		if err := json.Unmarshal([]byte(savedResponse), &response); err == nil {
-			err := h.usecase.SetCachedResponse(ctx, savedResponse, inputType, requestParam)
-			if err != nil {
-				logger.Warn("Cache is not updated in Redis", slog.Any("error", err))
-			}
+	if err == nil {
+		if len(savedResponse) != 0 {
+			// Если найдено в PostgreSQL, обновляем redis и возвращаем ответ
+			if err := json.Unmarshal([]byte(savedResponse), &response); err == nil {
+				err := h.usecase.SetCachedResponse(ctx, savedResponse, inputType, requestParam)
+				if err != nil {
+					logger.Warn("Cache is not updated in Redis", slog.Any("error", err))
+				}
 
-			w.WriteHeader(http.StatusOK)
-			w.Header().Set("Content-Type", "application/json")
-			err = json.NewEncoder(w).Encode(response)
-			if err != nil {
-				common.RespondWithError(w, http.StatusInternalServerError, FailedToEncodeResponse)
-				logger.Error(FailedToEncodeResponse, slog.Any("error", err))
+				w.WriteHeader(http.StatusOK)
+				w.Header().Set("Content-Type", "application/json")
+				err = json.NewEncoder(w).Encode(response)
+				if err != nil {
+					common.RespondWithError(w, http.StatusInternalServerError, FailedToEncodeResponse)
+					logger.Error(FailedToEncodeResponse, slog.Any("error", err))
+
+					return
+				}
+
+				logger.Info("Response from db was successfully found", slog.String("request", requestParam))
 
 				return
 			}
-
-			logger.Info("Response from db was successfully found", slog.String("request", requestParam))
-
-			return
+		} else {
+			logger.Warn("Got empty saved response")
 		}
-	} else if !errors.Is(err, sql.ErrNoRows) {
+	} else if !errors.Is(err, usecase.ErrRowNotFound) {
 		common.RespondWithError(w, http.StatusInternalServerError, InternalServerErrorMsg)
-		logger.Error("Ошибка при запросе к PostgreSQL", slog.Any("error", err))
+		logger.Error("No records found in PostgreSQL", slog.Any("error", err))
 
 		return
 	}
@@ -315,9 +319,10 @@ func (h *Handler) DomainIPUrl(w http.ResponseWriter, r *http.Request) {
 
 	w.Write(respJson)
 
-	err = h.usecase.SaveResponse(ctx, string(respJson), inputType, requestParam)
+	err = h.usecase.SaveResponse(ctx, string(respJson), apiResponse.Zone, inputType, requestParam)
 	if err != nil {
-		logger.Warn("Ошибка при вставке в PostgreSQL", slog.Any("error", err))
+		logger.Warn("Error save to PostgreSQL", slog.Any("error", err))
+
 		return
 	}
 

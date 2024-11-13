@@ -22,6 +22,7 @@ import (
 var (
 	ErrCacheMiss       = errors.New("cache miss")
 	ErrRowNotFound     = errors.New("row not found in db")
+	ErrUnsavedZone     = errors.New("zone to save is not Red or Green")
 	ErrUnsupportedFlow = errors.New("unsupported request flow")
 )
 
@@ -243,11 +244,21 @@ func (uc *Usecase) SavedResponse(ctx context.Context, inputType, requestParam st
 	return savedResponse, nil
 }
 
-func (uc *Usecase) SaveResponse(ctx context.Context, respJson, inputType, requestParam string) error {
+func (uc *Usecase) SaveResponse(ctx context.Context, respJson, zone, inputType, requestParam string) error {
 	uc.logger.Debug("Attempting to save response",
 		slog.String("input_type", inputType),
 		slog.String("request_param", requestParam),
 	)
+
+	// не сохраняем серые и неизвестные зоны
+	switch zone {
+	case "Orange", "Yellow":
+		zone = "Red"
+	case "Green":
+	case "Red":
+	default:
+		return ErrUnsavedZone
+	}
 
 	err := uc.postgresRepo.SaveResponse(ctx, respJson, inputType, requestParam)
 	if err != nil {
