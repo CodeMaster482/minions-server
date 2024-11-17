@@ -3,6 +3,8 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/CodeMaster482/minions-server/services/gateway/internal/statistics"
 	"github.com/CodeMaster482/minions-server/services/gateway/internal/statistics/models"
 	"log/slog"
@@ -20,19 +22,26 @@ func New(repo statistics.Repo, logger *slog.Logger) *Usecase {
 	}
 }
 
-// GetTopLinks возвращает топ-5 популярных ссылок для зон "Red" и "Green"
-func (uc *Usecase) GetTopLinks(ctx context.Context, limit int) (map[string][]models.LinkStat, error) {
-	zones := []string{"Red", "Green"}
-	result := make(map[string][]models.LinkStat)
-
-	for _, zone := range zones {
-		stats, err := uc.repo.TopLinksByZone(ctx, zone, limit)
-		if err != nil {
-			uc.logger.Error("Error getting top links", slog.String("zone", zone), slog.Any("error", err))
-			return nil, fmt.Errorf("error getting top links for zone %s: %w", zone, err)
-		}
-		result[zone] = stats
+// GetTopLinksByUserAndPeriod returns top N links for a user, period, and zone
+func (uc *Usecase) GetTopLinksByUserAndPeriod(ctx context.Context, userID *int, period string, zone string, limit int) ([]models.LinkStat, error) {
+	var since time.Time
+	now := time.Now()
+	switch period {
+	case "day":
+		since = now.AddDate(0, 0, -1)
+	case "week":
+		since = now.AddDate(0, 0, -7)
+	case "month":
+		since = now.AddDate(0, -1, 0)
+	default:
+		return nil, fmt.Errorf("invalid period: %s", period)
 	}
 
-	return result, nil
+	stats, err := uc.repo.TopLinksByUserZoneAndPeriod(ctx, userID, zone, since, limit)
+	if err != nil {
+		uc.logger.Error("Error getting top links", slog.Any("error", err))
+		return nil, fmt.Errorf("error getting top links: %w", err)
+	}
+
+	return stats, nil
 }

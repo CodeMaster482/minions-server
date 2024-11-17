@@ -1,0 +1,100 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: ../../
+      dockerfile: build/gateway/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    volumes:
+      # Bind mount конфигурационного файла приложения
+      - ../../services/gateway/cmd/config.yaml:/app/config.yaml
+      # Закомментировано: Bind mount для логов приложения
+      #- ../../services/gateway/logs:/var/log
+    command: ["./minions-server", "-c", "/app/config.yaml"]
+    networks:
+      - backend
+    environment:
+      - REDIS_ADDR=redis:6379
+      - REDIS_PASSWORD=redis
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=minions
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1024M
+        reservations:
+          cpus: '1'
+          memory: 512M
+
+  postgres:
+    image: postgres:13
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: minions
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      # Использование Docker-managed named volume для данных PostgreSQL
+      - pgdata:/var/lib/postgresql/data
+      # Bind mount для инициализационных скриптов базы данных
+      - ../../db:/docker-entrypoint-initdb.d
+    ports:
+      - "5436:5432"  # Проброс порта 5436 на хосте к 5432 внутри контейнера
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 1536M
+
+  redis:
+    image: redis:7.4.1-alpine3.20
+    restart: always
+    volumes:
+      # Bind mount конфигурационного файла Redis
+      - ../redis.conf:/usr/local/etc/redis/redis.conf
+      # Использование Docker-managed named volume для данных Redis
+      - redisdata:/data
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    ports:
+      - "6379:6379"
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+
+volumes:
+  pgdata:
+  # Docker-managed named volume для PostgreSQL
+  redisdata:
+  # Docker-managed named volume для Redis
+
+networks:
+  backend:
+    driver: bridge

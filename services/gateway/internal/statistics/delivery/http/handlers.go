@@ -1,43 +1,107 @@
-// handler/handler.go
-
 package handler
 
 import (
-	"log/slog"
+	"github.com/alexedwards/scs/v2"
 	"net/http"
 
 	"github.com/CodeMaster482/minions-server/common"
 	"github.com/CodeMaster482/minions-server/services/gateway/internal/statistics"
 	"github.com/CodeMaster482/minions-server/services/gateway/internal/statistics/models"
-
 	"github.com/go-echarts/go-echarts/v2/charts"
 	"github.com/go-echarts/go-echarts/v2/components"
 	"github.com/go-echarts/go-echarts/v2/opts"
 	"github.com/go-echarts/go-echarts/v2/types"
+	"log/slog"
 )
 
 type Handler struct {
-	usecase statistics.Usecase
-	logger  *slog.Logger
+	usecase        statistics.Usecase
+	logger         *slog.Logger
+	sessionManager *scs.SessionManager
 }
 
-func New(uc statistics.Usecase, logger *slog.Logger) *Handler {
+func New(uc statistics.Usecase, logger *slog.Logger, sessionManager *scs.SessionManager) *Handler {
 	return &Handler{
-		usecase: uc,
-		logger:  logger,
+		usecase:        uc,
+		logger:         logger,
+		sessionManager: sessionManager,
 	}
 }
 
-// TopLinks
-// @Summary Статистика топ-5 популярных ссылок
-// @Description Отображает топ-5 популярных ссылок с зонами "Red" и "Green" в виде анимированного графика
-// @ID top-links
+// TopRedLinksDay handles requests for the top 5 red links for today
+// @Summary Top 5 red links for today
+// @Description Displays a pie chart of the top 5 red (malicious) links accessed today
 // @Tags Statistics
 // @Produce html
 // @Success 200 {string} string "HTML with embedded chart"
 // @Failure 500 {object} common.ErrorResponse "Internal Server Error"
-// @Router /api/statistics/top-links [get]
-func (h *Handler) TopLinks(w http.ResponseWriter, r *http.Request) {
+// @Router /api/statistics/top-red-links-day [get]
+func (h *Handler) TopRedLinksDay(w http.ResponseWriter, r *http.Request) {
+	h.topLinksByUserAndPeriod(w, r, "day", "Red", "Топ 5 опасных ссылок за сегодня")
+}
+
+// TopGreenLinksDay handles requests for the top 5 green links for today
+// @Summary Top 5 green links for today
+// @Description Displays a pie chart of the top 5 green (safe) links accessed today
+// @Tags Statistics
+// @Produce html
+// @Success 200 {string} string "HTML with embedded chart"
+// @Failure 500 {object} common.ErrorResponse "Internal Server Error"
+// @Router /api/statistics/top-green-links-day [get]
+func (h *Handler) TopGreenLinksDay(w http.ResponseWriter, r *http.Request) {
+	h.topLinksByUserAndPeriod(w, r, "day", "Green", "Топ 5 безопасных ссылок за сегодня")
+}
+
+// TopRedLinksWeek handles requests for the top 5 red links for this week
+// @Summary Top 5 red links for this week
+// @Description Displays a pie chart of the top 5 red (malicious) links accessed this week
+// @Tags Statistics
+// @Produce html
+// @Success 200 {string} string "HTML with embedded chart"
+// @Failure 500 {object} common.ErrorResponse "Internal Server Error"
+// @Router /api/statistics/top-red-links-week [get]
+func (h *Handler) TopRedLinksWeek(w http.ResponseWriter, r *http.Request) {
+	h.topLinksByUserAndPeriod(w, r, "week", "Red", "Топ 5 опасных ссылок за неделю")
+}
+
+// TopGreenLinksWeek handles requests for the top 5 green links for this week
+// @Summary Top 5 green links for this week
+// @Description Displays a pie chart of the top 5 green (safe) links accessed this week
+// @Tags Statistics
+// @Produce html
+// @Success 200 {string} string "HTML with embedded chart"
+// @Failure 500 {object} common.ErrorResponse "Internal Server Error"
+// @Router /api/statistics/top-green-links-week [get]
+func (h *Handler) TopGreenLinksWeek(w http.ResponseWriter, r *http.Request) {
+	h.topLinksByUserAndPeriod(w, r, "week", "Green", "Топ 5 безопасных ссылок за неделю")
+}
+
+// TopRedLinksMonth handles requests for the top 5 red links for this month
+// @Summary Top 5 red links for this month
+// @Description Displays a pie chart of the top 5 red (malicious) links accessed this month
+// @Tags Statistics
+// @Produce html
+// @Success 200 {string} string "HTML with embedded chart"
+// @Failure 500 {object} common.ErrorResponse "Internal Server Error"
+// @Router /api/statistics/top-red-links-month [get]
+func (h *Handler) TopRedLinksMonth(w http.ResponseWriter, r *http.Request) {
+	h.topLinksByUserAndPeriod(w, r, "month", "Red", "Топ 5 опасных ссылок за месяц")
+}
+
+// TopGreenLinksMonth handles requests for the top 5 green links for this month
+// @Summary Top 5 green links for this month
+// @Description Displays a pie chart of the top 5 green (safe) links accessed this month
+// @Tags Statistics
+// @Produce html
+// @Success 200 {string} string "HTML with embedded chart"
+// @Failure 500 {object} common.ErrorResponse "Internal Server Error"
+// @Router /api/statistics/top-green-links-month [get]
+func (h *Handler) TopGreenLinksMonth(w http.ResponseWriter, r *http.Request) {
+	h.topLinksByUserAndPeriod(w, r, "month", "Green", "Топ 5 безопасных ссылок за месяц")
+}
+
+// topLinksByUserAndPeriod is a helper method that handles the logic for the above handlers
+func (h *Handler) topLinksByUserAndPeriod(w http.ResponseWriter, r *http.Request, period string, zone string, title string) {
 	ctx := r.Context()
 	logger := h.logger.With(
 		slog.String("method", r.Method),
@@ -45,129 +109,80 @@ func (h *Handler) TopLinks(w http.ResponseWriter, r *http.Request) {
 		slog.String("remote_addr", r.RemoteAddr),
 	)
 
-	// Получаем статистику из usecase
-	topLinks, err := h.usecase.GetTopLinks(ctx, 5)
-	if err != nil {
-		common.RespondWithError(w, http.StatusInternalServerError, "Не удалось получить статистику топовых ссылок")
-		logger.Error("Failed to retrieve top links statistics", slog.Any("error", err))
+	// Get userID from session if the user is authenticated
+	userID, ok := h.sessionManager.Get(ctx, "user_id").(int)
+	if !ok {
+		common.RespondWithError(w, http.StatusInternalServerError, "Failed to get user_id from cookie")
+		logger.Error("Failed to get user_id from cookie")
 		return
 	}
 
-	// Создаем графики для зон "Red" и "Green"
-	redChart, greenChart := createBarChart(topLinks)
+	// Get top links from usecase
+	topLinks, err := h.usecase.GetTopLinksByUserAndPeriod(ctx, &userID, period, zone, 5)
+	if err != nil {
+		common.RespondWithError(w, http.StatusInternalServerError, "Failed to retrieve top links statistics")
+		logger.Error("Error retrieving top links", slog.Any("error", err))
+		return
+	}
 
-	// Создаем страницу и добавляем на нее графики
+	// Ensure we always have 5 data points
+	topLinks = fillMissingData(topLinks, 5)
+
+	// Create pie chart
+	pieChart := createPieChart(topLinks, title)
+
+	// Create page and render
 	page := components.NewPage()
-	page.PageTitle = "Топ 5 ссылок по зонам"
-	page.Layout = components.PageFlexLayout // Устанавливаем горизонтальное расположение
-	page.AddCharts(redChart, greenChart)
+	page.PageTitle = title
+	page.AddCharts(pieChart)
 
-	// Рендерим страницу и отправляем клиенту
 	w.Header().Set("Content-Type", "text/html")
 	if err := page.Render(w); err != nil {
-		common.RespondWithError(w, http.StatusInternalServerError, "Не удалось отобразить страницу с графиками")
-		logger.Error("Failed to render page with charts", slog.Any("error", err))
+		common.RespondWithError(w, http.StatusInternalServerError, "Failed to render page with chart")
+		logger.Error("Error rendering page", slog.Any("error", err))
 		return
 	}
 
-	logger.Info("Successfully rendered top links statistics")
+	logger.Info("Successfully rendered top links", slog.String("title", title))
 }
 
-// createBarChart создает два отдельных бар-чарта для зон "Red" и "Green"
-// и заполняет недостающие данные, чтобы всегда было 5 элементов
-func createBarChart(topLinks map[string][]models.LinkStat) (*charts.Bar, *charts.Bar) {
-	redData, greenData := topLinks["Red"], topLinks["Green"]
-
-	// Убедимся, что в данных всегда есть 5 элементов
-	redData = fillMissingData(redData, 5)
-	greenData = fillMissingData(greenData, 5)
-
-	// Создаем бар-чарт для зоны "Red"
-	redBar := charts.NewBar()
-	redBar.SetGlobalOptions(
+// createPieChart creates a pie chart for the given data
+func createPieChart(data []models.LinkStat, title string) *charts.Pie {
+	pie := charts.NewPie()
+	pie.SetGlobalOptions(
 		charts.WithInitializationOpts(opts.Initialization{
 			Width:  "600px",
 			Height: "600px",
 			Theme:  types.ThemeChalk,
 		}),
-		charts.WithTitleOpts(opts.Title{
-			Title: "Топ 5 популярных вредоносных ссылок",
-		}),
+		charts.WithTitleOpts(opts.Title{Title: title}),
 		charts.WithTooltipOpts(opts.Tooltip{
 			Show: opts.Bool(true),
 		}),
 	)
 
-	var redRequests []string
-	var redCounts []opts.BarData
-	for _, stat := range redData {
-		redRequests = append(redRequests, stat.Request)
-		redCounts = append(redCounts, opts.BarData{Value: stat.AccessCount})
+	var pieItems []opts.PieData
+	for _, stat := range data {
+		pieItems = append(pieItems, opts.PieData{
+			Name:  stat.Request,
+			Value: stat.AccessCount,
+		})
 	}
 
-	redBar.SetXAxis(redRequests).
-		AddSeries("Access Count", redCounts).
+	pie.AddSeries("Links", pieItems).
 		SetSeriesOptions(
-			charts.WithLabelOpts(opts.Label{
-				Show:      opts.Bool(true),
-				Position:  "top",
-				Formatter: "{c}",
-			}),
-			charts.WithItemStyleOpts(opts.ItemStyle{
-				Color: "rgba(255, 99, 132, 0.6)", // Красный цвет
-			}),
-			charts.WithAnimationOpts(opts.Animation{
-				AnimationEasing:   "elasticOut",
-				AnimationDuration: 1000,
-				AnimationDelay:    300,
-			}),
+			charts.WithLabelOpts(
+				opts.Label{
+					Show:      opts.Bool(true),
+					Formatter: "{b}: {c}",
+				},
+			),
 		)
 
-	// Создаем бар-чарт для зоны "Green"
-	greenBar := charts.NewBar()
-	greenBar.SetGlobalOptions(
-		charts.WithInitializationOpts(opts.Initialization{
-			Width:  "600px",
-			Height: "600px",
-			Theme:  types.ThemeChalk,
-		}),
-		charts.WithTitleOpts(opts.Title{
-			Title: "Топ 5 безопасных ссылок",
-		}),
-		charts.WithTooltipOpts(opts.Tooltip{
-			Show: opts.Bool(true),
-		}),
-	)
-
-	var greenRequests []string
-	var greenCounts []opts.BarData
-	for _, stat := range greenData {
-		greenRequests = append(greenRequests, stat.Request)
-		greenCounts = append(greenCounts, opts.BarData{Value: stat.AccessCount})
-	}
-
-	greenBar.SetXAxis(greenRequests).
-		AddSeries("Access Count", greenCounts).
-		SetSeriesOptions(
-			charts.WithLabelOpts(opts.Label{
-				Show:      opts.Bool(true),
-				Position:  "top",
-				Formatter: "{c}",
-			}),
-			charts.WithItemStyleOpts(opts.ItemStyle{
-				Color: "rgba(75, 192, 192, 0.6)", // Зеленый цвет
-			}),
-			charts.WithAnimationOpts(opts.Animation{
-				AnimationEasing:   "elasticOut",
-				AnimationDuration: 1000,
-				AnimationDelay:    300,
-			}),
-		)
-
-	return redBar, greenBar
+	return pie
 }
 
-// fillMissingData заполняет недостающие данные до нужной длины
+// fillMissingData fills missing data to ensure there are always 'length' items
 func fillMissingData(data []models.LinkStat, length int) []models.LinkStat {
 	for len(data) < length {
 		data = append(data, models.LinkStat{

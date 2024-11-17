@@ -105,8 +105,8 @@ definitions:
     properties:
       Threat:
         description: Количество обнаруженных объектов, принадлежащих к данной зоне
-        example: 1
-        type: integer
+        example: "1"
+        type: string
       Zone:
         description: Цвет зоны обнаруженного объекта (Red или Yellow)
         example: Red
@@ -166,7 +166,7 @@ definitions:
   models.FileScanResponse:
     properties:
       DetectionsInfo:
-        description: Информация о обнаруженных объектах
+        description: Информация об обнаруженных объектах
         items:
           $ref: '#/definitions/models.DetectionInfo'
         type: array
@@ -621,11 +621,9 @@ paths:
       summary: Проверка веб-адреса, IP или домена через Kaspersky API
       tags:
       - Scan
-  /api/statistics/top-links:
+  /api/statistics/top-green-links-day:
     get:
-      description: Отображает топ-5 популярных ссылок с зонами "Red" и "Green" в виде
-        анимированного графика
-      operationId: top-links
+      description: Displays a pie chart of the top 5 green (safe) links accessed today
       produces:
       - text/html
       responses:
@@ -637,7 +635,97 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/common.ErrorResponse'
-      summary: Статистика топ-5 популярных ссылок
+      summary: Top 5 green links for today
+      tags:
+      - Statistics
+  /api/statistics/top-green-links-month:
+    get:
+      description: Displays a pie chart of the top 5 green (safe) links accessed this
+        month
+      produces:
+      - text/html
+      responses:
+        "200":
+          description: HTML with embedded chart
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/common.ErrorResponse'
+      summary: Top 5 green links for this month
+      tags:
+      - Statistics
+  /api/statistics/top-green-links-week:
+    get:
+      description: Displays a pie chart of the top 5 green (safe) links accessed this
+        week
+      produces:
+      - text/html
+      responses:
+        "200":
+          description: HTML with embedded chart
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/common.ErrorResponse'
+      summary: Top 5 green links for this week
+      tags:
+      - Statistics
+  /api/statistics/top-red-links-day:
+    get:
+      description: Displays a pie chart of the top 5 red (malicious) links accessed
+        today
+      produces:
+      - text/html
+      responses:
+        "200":
+          description: HTML with embedded chart
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/common.ErrorResponse'
+      summary: Top 5 red links for today
+      tags:
+      - Statistics
+  /api/statistics/top-red-links-month:
+    get:
+      description: Displays a pie chart of the top 5 red (malicious) links accessed
+        this month
+      produces:
+      - text/html
+      responses:
+        "200":
+          description: HTML with embedded chart
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/common.ErrorResponse'
+      summary: Top 5 red links for this month
+      tags:
+      - Statistics
+  /api/statistics/top-red-links-week:
+    get:
+      description: Displays a pie chart of the top 5 red (malicious) links accessed
+        this week
+      produces:
+      - text/html
+      responses:
+        "200":
+          description: HTML with embedded chart
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/common.ErrorResponse'
+      summary: Top 5 red links for this week
       tags:
       - Statistics
 swagger: "2.0"

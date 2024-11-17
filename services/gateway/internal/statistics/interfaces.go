@@ -2,13 +2,15 @@ package statistics
 
 import (
 	"context"
+	"time"
+
 	"github.com/CodeMaster482/minions-server/services/gateway/internal/statistics/models"
 )
 
 type Usecase interface {
-	GetTopLinks(ctx context.Context, limit int) (map[string][]models.LinkStat, error)
+	GetTopLinksByUserAndPeriod(ctx context.Context, userID *int, period string, zone string, limit int) ([]models.LinkStat, error)
 }
 
 type Repo interface {
-	TopLinksByZone(ctx context.Context, zone string, limit int) ([]models.LinkStat, error)
+	TopLinksByUserZoneAndPeriod(ctx context.Context, userID *int, zone string, since time.Time, limit int) ([]models.LinkStat, error)
 }

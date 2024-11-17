@@ -8,7 +8,7 @@ type FileScanResponse struct {
 	// Общая информация о проанализированном файле
 	FileGeneralInfo *FileGeneralInfo `json:"FileGeneralInfo,omitempty"`
 
-	// Информация о обнаруженных объектах
+	// Информация об обнаруженных объектах
 	DetectionsInfo []DetectionInfo `json:"DetectionsInfo,omitempty"`
 
 	// Обнаружения, связанные с проанализированным файлом
@@ -75,5 +75,5 @@ type DynamicDetection struct {
 	Zone string `json:"Zone" example:"Red"`
 
 	// Количество обнаруженных объектов, принадлежащих к данной зоне
-	Threat int `json:"Threat" example:"1"`
+	Threat string `json:"Threat" example:"1"`
 }

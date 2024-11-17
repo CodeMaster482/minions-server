@@ -11,7 +11,8 @@ require (
 	github.com/gorilla/mux v1.8.1
 	github.com/lib/pq v1.10.9
 	github.com/swaggo/http-swagger v1.3.4
-	golang.org/x/crypto v0.28.0
+	golang.org/x/crypto v0.29.0
+	golang.org/x/exp v0.0.0-20241108190413-2d47ceb2692f
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	mvdan.cc/xurls v1.1.0
 )
@@ -22,8 +23,8 @@ require (
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/mvdan/xurls v1.1.0 // indirect
-	golang.org/x/sys v0.26.0 // indirect
-	golang.org/x/text v0.19.0 // indirect
+	golang.org/x/sys v0.27.0 // indirect
+	golang.org/x/text v0.20.0 // indirect
 )
 
 require (
@@ -36,7 +37,7 @@ require (
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/swaggo/files v1.0.1 // indirect
 	github.com/swaggo/swag v1.16.3
-	golang.org/x/net v0.30.0 // indirect
-	golang.org/x/tools v0.26.0 // indirect
+	golang.org/x/net v0.31.0 // indirect
+	golang.org/x/tools v0.27.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1
 )

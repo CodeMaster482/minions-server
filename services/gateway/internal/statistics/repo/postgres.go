@@ -4,17 +4,23 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
+
 	"github.com/CodeMaster482/minions-server/services/gateway/internal/statistics/models"
 	"log/slog"
 )
 
 var (
-	TopLinksByZone = `
-        SELECT request, access_count
+	// Updated query to include user_id and time period
+	TopLinksByUserZoneAndPeriod = `
+        SELECT request, SUM(access_count) as total_access_count
         FROM scan_results
-        WHERE response->>'Zone' = $1
-        ORDER BY access_count DESC
-        LIMIT $2
+        WHERE (user_id = $1 OR ($1 IS NULL AND user_id IS NULL))
+          AND response->>'Zone' = $2
+          AND created_at >= $3
+        GROUP BY request
+        ORDER BY total_access_count DESC
+        LIMIT $4
     `
 )
 
@@ -30,11 +36,11 @@ func New(db *sql.DB, logger *slog.Logger) *Postgres {
 	}
 }
 
-// TopLinksByZone возвращает топ-N ссылок для указанной зоны
-func (p *Postgres) TopLinksByZone(ctx context.Context, zone string, limit int) ([]models.LinkStat, error) {
-	rows, err := p.db.QueryContext(ctx, TopLinksByZone, zone, limit)
+// TopLinksByUserZoneAndPeriod returns the top N links for a user, zone, and time period
+func (p *Postgres) TopLinksByUserZoneAndPeriod(ctx context.Context, userID *int, zone string, since time.Time, limit int) ([]models.LinkStat, error) {
+	rows, err := p.db.QueryContext(ctx, TopLinksByUserZoneAndPeriod, userID, zone, since, limit)
 	if err != nil {
-		p.logger.Error("Error executing TOP links query", slog.Any("error", err))
+		p.logger.Error("Error executing top links query", slog.Any("error", err))
 		return nil, fmt.Errorf("error executing top links query: %w", err)
 	}
 	defer rows.Close()

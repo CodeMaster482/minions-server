@@ -314,17 +314,146 @@
                 }
             }
         },
-        "/api/statistics/top-links": {
+        "/api/statistics/top-green-links-day": {
             "get": {
-                "description": "Отображает топ-5 популярных ссылок с зонами \"Red\" и \"Green\" в виде анимированного графика",
+                "description": "Displays a pie chart of the top 5 green (safe) links accessed today",
                 "produces": [
                     "text/html"
                 ],
                 "tags": [
                     "Statistics"
                 ],
-                "summary": "Статистика топ-5 популярных ссылок",
-                "operationId": "top-links",
+                "summary": "Top 5 green links for today",
+                "responses": {
+                    "200": {
+                        "description": "HTML with embedded chart",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/common.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/statistics/top-green-links-month": {
+            "get": {
+                "description": "Displays a pie chart of the top 5 green (safe) links accessed this month",
+                "produces": [
+                    "text/html"
+                ],
+                "tags": [
+                    "Statistics"
+                ],
+                "summary": "Top 5 green links for this month",
+                "responses": {
+                    "200": {
+                        "description": "HTML with embedded chart",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/common.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/statistics/top-green-links-week": {
+            "get": {
+                "description": "Displays a pie chart of the top 5 green (safe) links accessed this week",
+                "produces": [
+                    "text/html"
+                ],
+                "tags": [
+                    "Statistics"
+                ],
+                "summary": "Top 5 green links for this week",
+                "responses": {
+                    "200": {
+                        "description": "HTML with embedded chart",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/common.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/statistics/top-red-links-day": {
+            "get": {
+                "description": "Displays a pie chart of the top 5 red (malicious) links accessed today",
+                "produces": [
+                    "text/html"
+                ],
+                "tags": [
+                    "Statistics"
+                ],
+                "summary": "Top 5 red links for today",
+                "responses": {
+                    "200": {
+                        "description": "HTML with embedded chart",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/common.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/statistics/top-red-links-month": {
+            "get": {
+                "description": "Displays a pie chart of the top 5 red (malicious) links accessed this month",
+                "produces": [
+                    "text/html"
+                ],
+                "tags": [
+                    "Statistics"
+                ],
+                "summary": "Top 5 red links for this month",
+                "responses": {
+                    "200": {
+                        "description": "HTML with embedded chart",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/common.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/statistics/top-red-links-week": {
+            "get": {
+                "description": "Displays a pie chart of the top 5 red (malicious) links accessed this week",
+                "produces": [
+                    "text/html"
+                ],
+                "tags": [
+                    "Statistics"
+                ],
+                "summary": "Top 5 red links for this week",
                 "responses": {
                     "200": {
                         "description": "HTML with embedded chart",
@@ -484,8 +613,8 @@
             "properties": {
                 "Threat": {
                     "description": "Количество обнаруженных объектов, принадлежащих к данной зоне",
-                    "type": "integer",
-                    "example": 1
+                    "type": "string",
+                    "example": "1"
                 },
                 "Zone": {
                     "description": "Цвет зоны обнаруженного объекта (Red или Yellow)",
@@ -558,7 +687,7 @@
             "type": "object",
             "properties": {
                 "DetectionsInfo": {
-                    "description": "Информация о обнаруженных объектах",
+                    "description": "Информация об обнаруженных объектах",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/models.DetectionInfo"

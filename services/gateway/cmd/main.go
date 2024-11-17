@@ -128,7 +128,7 @@ func run() error {
 
 	statisticsRepo := statisticsRepo.New(postgresClient, logger)
 	statisticsUsecase := statisticsUsecase.New(statisticsRepo, logger)
-	stat := statisticsHandlers.New(statisticsUsecase, logger)
+	stat := statisticsHandlers.New(statisticsUsecase, logger, sessionManager)
 
 	//=================================================================//
 
@@ -160,13 +160,18 @@ func run() error {
 	authRouter.Use(mw.RequireAuthentication)
 
 	{
-		r.HandleFunc("/statistics/top-links", stat.TopLinks).Methods(http.MethodGet, http.MethodOptions)
+		r.HandleFunc("/stat/top-red-links-day", stat.TopRedLinksDay).Methods(http.MethodGet, http.MethodOptions)
+		r.HandleFunc("/stat/top-green-links-day", stat.TopGreenLinksDay).Methods(http.MethodGet, http.MethodOptions)
+		r.HandleFunc("/stat/top-red-links-week", stat.TopRedLinksWeek).Methods(http.MethodGet, http.MethodOptions)
+		r.HandleFunc("/stat/top-green-links-week", stat.TopGreenLinksWeek).Methods(http.MethodGet, http.MethodOptions)
+		r.HandleFunc("/stat/top-red-links-month", stat.TopRedLinksMonth).Methods(http.MethodGet, http.MethodOptions)
+		r.HandleFunc("/stat/top-green-links-month", stat.TopGreenLinksMonth).Methods(http.MethodGet, http.MethodOptions)
 	}
 
 	{
 		r.HandleFunc("/auth/login", auth.Login).Methods(http.MethodPost, http.MethodOptions)
 		r.HandleFunc("/auth/register", auth.Register).Methods(http.MethodPost, http.MethodOptions)
-		r.HandleFunc("/auth/logout", auth.Logout).Methods(http.MethodPost, http.MethodOptions)
+		authRouter.HandleFunc("/auth/logout", auth.Logout).Methods(http.MethodPost, http.MethodOptions)
 	}
 
 	{
