@@ -250,15 +250,15 @@ func (uc *Usecase) SaveResponse(ctx context.Context, respJson, zone, inputType, 
 		slog.String("request_param", requestParam),
 	)
 
-	// не сохраняем серые и неизвестные зоны
-	switch zone {
-	case "Orange", "Yellow":
-		zone = "Red"
-	case "Green":
-	case "Red":
-	default:
-		return ErrUnsavedZone
-	}
+	//// не сохраняем серые и неизвестные зоны
+	//switch zone {
+	//case "Orange", "Yellow":
+	//	zone = "Red"
+	//case "Green":
+	//case "Red":
+	//default:
+	//	return ErrUnsavedZone
+	//}
 
 	err := uc.postgresRepo.SaveResponse(ctx, respJson, inputType, requestParam)
 	if err != nil {
