@@ -87,11 +87,6 @@ func (uc *Usecase) resolveRedirects(inputURL string) (string, error) {
 		return "", err
 	}
 
-	req.Header.Set("User-Agent", "PostmanRuntime/7.37.3")
-	req.Header.Set("Accept", "*/*")
-	req.Header.Set("Accept-Language", "en-US,en;q=0.5")
-	req.Header.Set("Connection", "keep-alive")
-
 	client := &http.Client{
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse
@@ -100,6 +95,7 @@ func (uc *Usecase) resolveRedirects(inputURL string) (string, error) {
 
 	resp, err := client.Do(req)
 	if err != nil {
+		uc.logger.Debug("get short link", slog.Any("error", err))
 		return inputURL, err
 	}
 	defer resp.Body.Close()
