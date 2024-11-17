@@ -81,31 +81,37 @@ func (uc *Usecase) DetermineInputType(input string) (string, string, error) {
 
 // resolveRedirects развертывает сокращенные ссылки, возвращая финальный URL.
 func (uc *Usecase) resolveRedirects(inputURL string) (string, error) {
+
+	req, err := http.NewRequestWithContext(context.TODO(), "GET", inputURL, nil)
+	if err != nil {
+		return "", err
+	}
+
+	req.Header.Set("User-Agent", "PostmanRuntime/7.37.3")
+	req.Header.Set("Accept", "*/*")
+	req.Header.Set("Accept-Language", "en-US,en;q=0.5")
+	req.Header.Set("Connection", "keep-alive")
+
 	client := &http.Client{
-		// Следуем перенаправлениям
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			// Лимитируем количество перенаправлений, если нужно
-			if len(via) >= 10 {
-				return errors.New("too many redirects")
-			}
-			return nil
+			return http.ErrUseLastResponse
 		},
 	}
 
-	resp, err := client.Head(inputURL)
+	resp, err := client.Do(req)
 	if err != nil {
-		return "", err
+		return inputURL, err
 	}
 	defer resp.Body.Close()
 
 	// Проверяем наличие конечного URL после перенаправлений
-	if resp.Request != nil && resp.Request.URL != nil {
+	if resp.StatusCode == 301 || resp.StatusCode == 302 {
 		uc.logger.Debug("short URL resolved:",
 			slog.String("short_link", inputURL),
-			slog.String("long_link", resp.Request.URL.String()),
+			slog.String("long_link", resp.Header.Get("Location")),
 		)
 
-		return resp.Request.URL.String(), nil
+		return resp.Header.Get("Location"), nil
 	}
 
 	return inputURL, nil // Если перенаправлений не было
