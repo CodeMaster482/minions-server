@@ -40,33 +40,75 @@ func New(postgres scan.Postgres, redis scan.Redis, logger *slog.Logger) *Usecase
 	}
 }
 
-// DetermineInputType определяет тип входной строки: IP, URL или домен.
-func (uc *Usecase) DetermineInputType(input string) (string, error) {
+// DetermineInputType определяет тип входной строки: IP, URL, домен или развернутую ссылку.
+func (uc *Usecase) DetermineInputType(input string) (string, string, error) {
 	// Удаляем возможные пробелы по краям строки
 	input = strings.TrimSpace(input)
 
 	// Проверяем, является ли входная строка IP-адресом
 	if net.ParseIP(input) != nil {
-		return "ip", nil
+		return "ip", input, nil
 	}
 
 	// Проверяем, является ли входная строка URL
 	u, err := url.Parse(input)
 	if err == nil && u.Scheme != "" && u.Host != "" {
-		// Проверяем, есть ли путь, отличный от пустого или "/"
-		if u.Path != "" && u.Path != "/" {
-			return "url", nil
+		// Попробуем развернуть ссылку, если это сокращенный URL
+		finalURL, err := uc.resolveRedirects(input)
+		if err == nil {
+			// Если удалось развернуть, проверяем тип по развернутому URL
+			uFinal, _ := url.Parse(finalURL)
+			if uFinal.Path != "" && uFinal.Path != "/" {
+				return "url", finalURL, nil
+			}
+			return "domain", finalURL, nil
 		}
+
 		// Если путь пустой или "/", считаем это доменом
-		return "domain", nil
+		if u.Path == "" || u.Path == "/" {
+			return "domain", input, nil
+		}
+		return "url", input, nil
 	}
 
 	// Проверяем, является ли входная строка доменным именем
 	if isValidDomain(input) {
-		return "domain", nil
+		return "domain", input, nil
 	}
 
-	return "", errors.New("invalid input")
+	return "", "", errors.New("invalid input")
+}
+
+// resolveRedirects развертывает сокращенные ссылки, возвращая финальный URL.
+func (uc *Usecase) resolveRedirects(inputURL string) (string, error) {
+	client := &http.Client{
+		// Следуем перенаправлениям
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			// Лимитируем количество перенаправлений, если нужно
+			if len(via) >= 10 {
+				return errors.New("too many redirects")
+			}
+			return nil
+		},
+	}
+
+	resp, err := client.Head(inputURL)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	// Проверяем наличие конечного URL после перенаправлений
+	if resp.Request != nil && resp.Request.URL != nil {
+		uc.logger.Debug("short URL resolved:",
+			slog.String("short_link", inputURL),
+			slog.String("long_link", resp.Request.URL.String()),
+		)
+
+		return resp.Request.URL.String(), nil
+	}
+
+	return inputURL, nil // Если перенаправлений не было
 }
 
 // возвращает слова из запроса OCR без побелов
@@ -129,7 +171,7 @@ func (uc *Usecase) RequestKasperskyAPI(ctx context.Context, ioc string, apiKey s
 }
 
 func (uc *Usecase) getIocFlow(inputType string) (string, error) {
-	determineInput, err := uc.DetermineInputType(inputType)
+	determineInput, _, err := uc.DetermineInputType(inputType)
 	if err != nil {
 		return "", fmt.Errorf("uc.DetermineInputType: %w", err)
 	}

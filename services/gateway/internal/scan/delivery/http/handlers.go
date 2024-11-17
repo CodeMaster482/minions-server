@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/CodeMaster482/minions-server/services/gateway/internal/scan/usecase"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/url"
+
+	"github.com/CodeMaster482/minions-server/services/gateway/internal/scan/usecase"
 
 	"github.com/CodeMaster482/minions-server/common"
 	"github.com/CodeMaster482/minions-server/services/gateway/internal/scan"
@@ -160,7 +161,7 @@ func (h *Handler) DomainIPUrl(w http.ResponseWriter, r *http.Request) {
 
 	logger.Info("Request from user", requestParam)
 
-	inputType, err := h.usecase.DetermineInputType(requestParam)
+	inputType, requestParam, err := h.usecase.DetermineInputType(requestParam)
 	if err != nil {
 		common.RespondWithError(w, http.StatusBadRequest, InvalidInput)
 		logger.Error(InvalidInput, slog.Any("error", err))
