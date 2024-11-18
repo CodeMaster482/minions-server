@@ -173,8 +173,10 @@ func (h *Handler) DomainIPUrl(w http.ResponseWriter, r *http.Request) {
 	// Получаем userID из сессии, если пользователь авторизован
 	userID, ok := h.sessionManager.Get(ctx, "user_id").(int)
 	if !ok {
-		userID = 0 // Или используйте nil, если поддерживается
+		userID = 0
 	}
+
+	logger.Info("User ID is (unregistered is 0)", userID)
 
 	// Проверяем наличие в Redis
 	var response models.ResponseFromAPI
