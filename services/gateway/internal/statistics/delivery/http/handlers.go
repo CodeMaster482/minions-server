@@ -135,7 +135,7 @@ func (h *Handler) topLinksByUserAndPeriod(w http.ResponseWriter, r *http.Request
 	topLinks = fillMissingData(topLinks, 5)
 
 	// Create pie chart
-	pieChart := createPieChart(topLinks, title)
+	pieChart := createPieChartWithColors(topLinks, title)
 
 	// Create page and render
 	page := components.NewPage()
