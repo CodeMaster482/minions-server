@@ -163,7 +163,7 @@ func (h *Handler) DomainIPUrl(w http.ResponseWriter, r *http.Request) {
 
 	logger.Info("Request from user", requestParam)
 
-	inputType, err := h.usecase.DetermineInputType(requestParam)
+	inputType, requestParam, err := h.usecase.DetermineInputType(requestParam)
 	if err != nil {
 		common.RespondWithError(w, http.StatusBadRequest, InvalidInput)
 		logger.Error(InvalidInput, slog.Any("error", err))
@@ -256,6 +256,7 @@ func (h *Handler) DomainIPUrl(w http.ResponseWriter, r *http.Request) {
 	} else if !errors.Is(err, usecase.ErrRowNotFound) {
 		common.RespondWithError(w, http.StatusInternalServerError, InternalServerErrorMsg)
 		logger.Error("No records found in PostgreSQL", slog.Any("error", err))
+
 		return
 	}
 

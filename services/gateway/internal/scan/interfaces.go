@@ -7,7 +7,7 @@ import (
 )
 
 type Usecase interface {
-	DetermineInputType(input string) (string, error)
+	DetermineInputType(input string) (string, string, error)
 
 	GetTextOCRResponse(OCR models.ApiResponse) ([]string, error)
 	RequestKasperskyAPI(ctx context.Context, ioc string, apiKey string) (*models.ResponseFromAPI, error)
