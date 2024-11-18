@@ -63,6 +63,8 @@ func (p *Postgres) TopLinksByUserZoneAndPeriod(ctx context.Context, userID *int,
 		results = append(results, stat)
 	}
 
+	p.logger.Info("Top links by zone by user and period", slog.Any("got results with len", len(results)))
+
 	if err := rows.Err(); err != nil {
 		p.logger.Error("Rows iteration error", slog.Any("error", err))
 		return nil, fmt.Errorf("rows iteration error: %w", err)
@@ -89,6 +91,8 @@ func (p *Postgres) TopLinksByZone(ctx context.Context, zone string, limit int) (
 		}
 		results = append(results, stat)
 	}
+
+	p.logger.Info("Top links by zone", slog.Any("got results with len", len(results)))
 
 	if err := rows.Err(); err != nil {
 		p.logger.Error("Rows iteration error", slog.Any("error", err))
