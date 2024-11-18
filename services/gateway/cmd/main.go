@@ -135,7 +135,7 @@ func run() error {
 	scanPostgresRepo := scanPostgresRepo.New(postgresClient, logger)
 	scanRedisRepo := scanRedisRepo.New(redisPool, logger)
 	scanUsecase := scanUsecase.New(scanPostgresRepo, scanRedisRepo, logger)
-	scan := scanHandlers.New(cfg.Gateway.KasperskyAPIKey, cfg.Gateway.IamToken, cfg.Gateway.FolderID, scanUsecase, logger)
+	scan := scanHandlers.New(cfg.Gateway.KasperskyAPIKey, cfg.Gateway.IamToken, cfg.Gateway.FolderID, scanUsecase, sessionManager, logger)
 
 	//=================================================================//
 
@@ -160,12 +160,17 @@ func run() error {
 	authRouter.Use(mw.RequireAuthentication)
 
 	{
-		r.HandleFunc("/stat/top-red-links-day", stat.TopRedLinksDay).Methods(http.MethodGet, http.MethodOptions)
-		r.HandleFunc("/stat/top-green-links-day", stat.TopGreenLinksDay).Methods(http.MethodGet, http.MethodOptions)
-		r.HandleFunc("/stat/top-red-links-week", stat.TopRedLinksWeek).Methods(http.MethodGet, http.MethodOptions)
-		r.HandleFunc("/stat/top-green-links-week", stat.TopGreenLinksWeek).Methods(http.MethodGet, http.MethodOptions)
-		r.HandleFunc("/stat/top-red-links-month", stat.TopRedLinksMonth).Methods(http.MethodGet, http.MethodOptions)
-		r.HandleFunc("/stat/top-green-links-month", stat.TopGreenLinksMonth).Methods(http.MethodGet, http.MethodOptions)
+		authRouter.HandleFunc("/stat/top-red-links-day", stat.TopRedLinksDay).Methods(http.MethodGet, http.MethodOptions)
+		authRouter.HandleFunc("/stat/top-green-links-day", stat.TopGreenLinksDay).Methods(http.MethodGet, http.MethodOptions)
+
+		authRouter.HandleFunc("/stat/top-red-links-week", stat.TopRedLinksWeek).Methods(http.MethodGet, http.MethodOptions)
+		authRouter.HandleFunc("/stat/top-green-links-week", stat.TopGreenLinksWeek).Methods(http.MethodGet, http.MethodOptions)
+
+		authRouter.HandleFunc("/stat/top-red-links-month", stat.TopRedLinksMonth).Methods(http.MethodGet, http.MethodOptions)
+		authRouter.HandleFunc("/stat/top-green-links-month", stat.TopGreenLinksMonth).Methods(http.MethodGet, http.MethodOptions)
+
+		r.HandleFunc("/stat/top-red-links-all-time", stat.TopRedLinksAllTime).Methods(http.MethodGet, http.MethodOptions)
+		r.HandleFunc("/stat/top-green-links-all-time", stat.TopGreenLinksAllTime).Methods(http.MethodGet, http.MethodOptions)
 	}
 
 	{

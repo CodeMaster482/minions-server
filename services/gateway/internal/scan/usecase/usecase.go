@@ -244,7 +244,7 @@ func (uc *Usecase) SavedResponse(ctx context.Context, inputType, requestParam st
 	return savedResponse, nil
 }
 
-func (uc *Usecase) SaveResponse(ctx context.Context, respJson, zone, inputType, requestParam string) error {
+func (uc *Usecase) SaveResponse(ctx context.Context, respJson, zone, inputType, requestParam string, userID int) error {
 	uc.logger.Debug("Attempting to save response",
 		slog.String("input_type", inputType),
 		slog.String("request_param", requestParam),
@@ -260,18 +260,40 @@ func (uc *Usecase) SaveResponse(ctx context.Context, respJson, zone, inputType, 
 	//	return ErrUnsavedZone
 	//}
 
+	// Сохраняем общий ответ
 	err := uc.postgresRepo.SaveResponse(ctx, respJson, inputType, requestParam)
 	if err != nil {
-		uc.logger.Error("Error retrieving saved response",
-			slog.Any("error", err),
-		)
+		uc.logger.Error("Error saving general response", slog.Any("error", err))
+		return err
+	}
 
-		return errors.Join(ErrRowNotFound, fmt.Errorf("failed to get saved response: %w", err))
+	// Сохраняем пользовательскую статистику, если пользователь авторизован
+	if userID != 0 {
+		err = uc.SaveUserStats(ctx, zone, inputType, requestParam, userID)
+		if err != nil {
+			uc.logger.Error("Error saving user-specific response", slog.Any("error", err))
+			return err
+		}
 	}
 
 	return nil
 }
 
+func (uc *Usecase) SaveUserStats(ctx context.Context, zone, inputType, requestParam string, userID int) error {
+	uc.logger.Debug("Attempting to save user stats",
+		slog.String("user_id", fmt.Sprintf("%d", userID)),
+		slog.String("input_type", inputType),
+		slog.String("request_param", requestParam),
+	)
+
+	err := uc.postgresRepo.SaveUserResponse(ctx, userID, zone, inputType, requestParam)
+	if err != nil {
+		uc.logger.Error("Error saving user stats", slog.Any("error", err))
+		return err
+	}
+
+	return nil
+}
 func removeDuplicateStr(strSlice []string) []string {
 	allKeys := make(map[string]bool)
 	list := []string{}

@@ -16,7 +16,8 @@ type Usecase interface {
 	SetCachedResponse(ctx context.Context, savedResponse, inputType, requestParam string) error
 
 	SavedResponse(ctx context.Context, inputType, requestParam string) (string, error)
-	SaveResponse(ctx context.Context, respJson, zone, inputType, requestParam string) error
+	SaveResponse(ctx context.Context, respJson, zone, inputType, requestParam string, userID int) error
+	SaveUserStats(ctx context.Context, zone, inputType, requestParam string, userID int) error
 }
 
 type Redis interface {
@@ -27,4 +28,5 @@ type Redis interface {
 type Postgres interface {
 	GetSavedResponse(ctx context.Context, inputType, requestParam string) (string, error)
 	SaveResponse(ctx context.Context, respJson, inputType, requestParam string) error
+	SaveUserResponse(ctx context.Context, userID int, zone, inputType, requestParam string) error
 }

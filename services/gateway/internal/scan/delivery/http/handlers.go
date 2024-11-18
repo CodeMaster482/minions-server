@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/CodeMaster482/minions-server/services/gateway/internal/scan/usecase"
+	"github.com/alexedwards/scs/v2"
 	"io"
 	"log/slog"
 	"net/http"
@@ -47,20 +48,22 @@ const (
 )
 
 type Handler struct {
-	iamToken string
-	apiKey   string
-	folderID string
-	usecase  scan.Usecase
-	logger   *slog.Logger
+	iamToken       string
+	apiKey         string
+	folderID       string
+	usecase        scan.Usecase
+	sessionManager *scs.SessionManager
+	logger         *slog.Logger
 }
 
-func New(apiKey string, iamToken string, folderID string, uc scan.Usecase, logger *slog.Logger) *Handler {
+func New(apiKey string, iamToken string, folderID string, uc scan.Usecase, sessionManager *scs.SessionManager, logger *slog.Logger) *Handler {
 	return &Handler{
-		iamToken: iamToken,
-		folderID: folderID,
-		apiKey:   apiKey,
-		usecase:  uc,
-		logger:   logger,
+		iamToken:       iamToken,
+		folderID:       folderID,
+		apiKey:         apiKey,
+		usecase:        uc,
+		sessionManager: sessionManager,
+		logger:         logger,
 	}
 }
 
@@ -167,11 +170,17 @@ func (h *Handler) DomainIPUrl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Проверяем наличие в redis
+	// Получаем userID из сессии, если пользователь авторизован
+	userID, ok := h.sessionManager.Get(ctx, "user_id").(int)
+	if !ok {
+		userID = 0 // Или используйте nil, если поддерживается
+	}
+
+	// Проверяем наличие в Redis
 	var response models.ResponseFromAPI
 	cachedResponse, err := h.usecase.CachedResponse(ctx, inputType, requestParam)
 	if err == nil {
-		// Если найдено в redis, возвращаем кэшированный ответ
+		// Если найдено в Redis, возвращаем кэшированный ответ
 		if err := json.Unmarshal([]byte(cachedResponse), &response); err == nil {
 			w.WriteHeader(http.StatusOK)
 			w.Header().Set("Content-Type", "application/json")
@@ -183,21 +192,31 @@ func (h *Handler) DomainIPUrl(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			_, err := h.usecase.SavedResponse(ctx, inputType, requestParam)
-			slog.Warn("Cant updated count in postgres", err)
+			// Обновляем счётчики
+			_, err = h.usecase.SavedResponse(ctx, inputType, requestParam)
+			if err != nil {
+				logger.Warn("Can't update count in PostgreSQL", slog.Any("error", err))
+			}
 
-			logger.Info("Returning cached response from redis", slog.String("request", requestParam))
+			// Обновляем пользовательский счётчик, если пользователь авторизован
+			if userID != 0 {
+				err = h.usecase.SaveUserStats(ctx, response.Zone, inputType, requestParam, userID)
+				if err != nil {
+					logger.Warn("Can't update user stats in PostgreSQL", slog.Any("error", err))
+				}
+			}
 
+			logger.Info("Returning cached response from Redis", slog.String("request", requestParam))
 			return
 		}
 		// Если произошла ошибка при разборе кэша, продолжаем обработку
 	}
 
-	// Ищем в postgres
+	// Ищем в PostgreSQL
 	savedResponse, err := h.usecase.SavedResponse(ctx, inputType, requestParam)
 	if err == nil {
 		if len(savedResponse) != 0 {
-			// Если найдено в PostgreSQL, обновляем redis и возвращаем ответ
+			// Если найдено в PostgreSQL, обновляем Redis и возвращаем ответ
 			if err := json.Unmarshal([]byte(savedResponse), &response); err == nil {
 				err := h.usecase.SetCachedResponse(ctx, savedResponse, inputType, requestParam)
 				if err != nil {
@@ -214,8 +233,21 @@ func (h *Handler) DomainIPUrl(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 
-				logger.Info("Response from db was successfully found", slog.String("request", requestParam))
+				// Обновляем счётчики
+				_, err = h.usecase.SavedResponse(ctx, inputType, requestParam)
+				if err != nil {
+					logger.Warn("Can't update count in PostgreSQL", slog.Any("error", err))
+				}
 
+				// Обновляем пользовательский счётчик, если пользователь авторизован
+				if userID != 0 {
+					err = h.usecase.SaveUserStats(ctx, response.Zone, inputType, requestParam, userID)
+					if err != nil {
+						logger.Warn("Can't update user stats in PostgreSQL", slog.Any("error", err))
+					}
+				}
+
+				logger.Info("Response from DB was successfully found", slog.String("request", requestParam))
 				return
 			}
 		} else {
@@ -224,7 +256,6 @@ func (h *Handler) DomainIPUrl(w http.ResponseWriter, r *http.Request) {
 	} else if !errors.Is(err, usecase.ErrRowNotFound) {
 		common.RespondWithError(w, http.StatusInternalServerError, InternalServerErrorMsg)
 		logger.Error("No records found in PostgreSQL", slog.Any("error", err))
-
 		return
 	}
 
@@ -319,9 +350,9 @@ func (h *Handler) DomainIPUrl(w http.ResponseWriter, r *http.Request) {
 
 	w.Write(respJson)
 
-	err = h.usecase.SaveResponse(ctx, string(respJson), apiResponse.Zone, inputType, requestParam)
+	err = h.usecase.SaveResponse(ctx, string(respJson), apiResponse.Zone, inputType, requestParam, userID)
 	if err != nil {
-		logger.Warn("Error save to PostgreSQL", slog.Any("error", err))
+		logger.Warn("Error saving response", slog.Any("error", err))
 
 		return
 	}

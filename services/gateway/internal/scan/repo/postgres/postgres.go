@@ -12,22 +12,34 @@ const (
 	PostgresMaxRecords = 10000
 )
 
-var (
+const (
 	GetScanResults = `
         SELECT response FROM scan_results
-        WHERE input_type = $1 AND request = $2
+        WHERE user_id IS NULL AND input_type = $1 AND request = $2
         FOR UPDATE
     `
 	UpdateScanResults = `
         UPDATE scan_results
         SET access_count = access_count + 1
-        WHERE input_type = $1 AND request = $2
+        WHERE user_id IS NULL AND input_type = $1 AND request = $2
     `
 
 	SaveScanResults = `
-	   INSERT INTO scan_results (input_type, request, response, access_count, created_at)
-	   VALUES ($1, $2, $3, 1, NOW())
-	`
+       INSERT INTO scan_results (user_id, input_type, request, response, access_count, created_at)
+       VALUES (NULL, $1, $2, $3, 1, NOW())
+       ON CONFLICT (user_id, input_type, request) DO UPDATE
+       SET access_count = scan_results.access_count + 1,
+           response = EXCLUDED.response,
+           created_at = NOW()
+    `
+
+	SaveUserScanStats = `
+        INSERT INTO user_scan_stats (user_id, input_type, request, zone, access_count, last_accessed)
+        VALUES ($1, $2, $3, $4, 1, NOW())
+        ON CONFLICT (user_id, input_type, request) DO UPDATE
+        SET access_count = user_scan_stats.access_count + 1,
+            last_accessed = NOW()
+    `
 )
 
 type Postgres struct {
@@ -115,15 +127,13 @@ func (p *Postgres) SaveResponse(ctx context.Context, responseJson, inputType, re
 	tx, err := p.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
 	if err != nil {
 		p.logger.Error("Ошибка при начале транзакции", slog.Any("error", err))
-
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer tx.Rollback()
 
-	// Сохраняем в PostgreSQL с начальным access_count = 1
+	// Сохраняем или обновляем общий ответ
 	_, err = tx.ExecContext(ctx, SaveScanResults, inputType, requestParam, responseJson)
 	if err != nil {
-
 		p.logger.Error("Ошибка при вставке в PostgreSQL", slog.Any("error", err))
 
 		return fmt.Errorf("error executing INSERT query: %w", err)
@@ -141,13 +151,29 @@ func (p *Postgres) SaveResponse(ctx context.Context, responseJson, inputType, re
 	if err := tx.Commit(); err != nil {
 		p.logger.Error("Ошибка при фиксации транзакции", slog.Any("error", err))
 
-		return fmt.Errorf("error executing INSERT query: %w", err)
+		return fmt.Errorf("error committing transaction: %w", err)
 	}
 
-	p.logger.Info("Successfully retrieved and updated response from PostgreSQL")
+	p.logger.Info("Successfully saved/updated general response in PostgreSQL")
 
 	return nil
+}
 
+func (p *Postgres) SaveUserResponse(ctx context.Context, userID int, zone, inputType, requestParam string) error {
+	p.logger.Debug("Starting SaveUserResponse",
+		slog.String("user_id", fmt.Sprintf("%d", userID)),
+		slog.String("input_type", inputType),
+		slog.String("request_param", requestParam),
+	)
+
+	_, err := p.db.ExecContext(ctx, SaveUserScanStats, userID, inputType, requestParam, zone)
+	if err != nil {
+		p.logger.Error("Error inserting/updating user_scan_stats", slog.Any("error", err))
+		return err
+	}
+
+	p.logger.Info("Successfully saved/updated user-specific response in PostgreSQL")
+	return nil
 }
 
 // Функция для очистки самых непопулярных записей в PostgreSQL

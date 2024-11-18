@@ -323,7 +323,33 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/statistics/top-green-links-day": {
+        "/api/stat/top-green-links-all-time": {
+            "get": {
+                "description": "Returns a pie chart of the top 5 green (safe) links accessed all time.",
+                "produces": [
+                    "text/html"
+                ],
+                "tags": [
+                    "Statistics"
+                ],
+                "summary": "Top 5 Green Links All Time",
+                "responses": {
+                    "200": {
+                        "description": "HTML with embedded chart",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/common.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/stat/top-green-links-day": {
             "get": {
                 "description": "Displays a pie chart of the top 5 green (safe) links accessed today",
                 "produces": [
@@ -340,6 +366,12 @@ const docTemplate = `{
                             "type": "string"
                         }
                     },
+                    "401": {
+                        "description": "Status Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/common.ErrorResponse"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -349,7 +381,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/statistics/top-green-links-month": {
+        "/api/stat/top-green-links-month": {
             "get": {
                 "description": "Displays a pie chart of the top 5 green (safe) links accessed this month",
                 "produces": [
@@ -366,6 +398,12 @@ const docTemplate = `{
                             "type": "string"
                         }
                     },
+                    "401": {
+                        "description": "Status Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/common.ErrorResponse"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -375,7 +413,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/statistics/top-green-links-week": {
+        "/api/stat/top-green-links-week": {
             "get": {
                 "description": "Displays a pie chart of the top 5 green (safe) links accessed this week",
                 "produces": [
@@ -392,6 +430,12 @@ const docTemplate = `{
                             "type": "string"
                         }
                     },
+                    "401": {
+                        "description": "Status Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/common.ErrorResponse"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -401,7 +445,33 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/statistics/top-red-links-day": {
+        "/api/stat/top-red-links-all-time": {
+            "get": {
+                "description": "Returns a pie chart of the top 5 red (malicious) links accessed all time.",
+                "produces": [
+                    "text/html"
+                ],
+                "tags": [
+                    "Statistics"
+                ],
+                "summary": "Top 5 Red Links All Time",
+                "responses": {
+                    "200": {
+                        "description": "HTML with embedded chart",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/common.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/stat/top-red-links-day": {
             "get": {
                 "description": "Displays a pie chart of the top 5 red (malicious) links accessed today",
                 "produces": [
@@ -418,6 +488,12 @@ const docTemplate = `{
                             "type": "string"
                         }
                     },
+                    "401": {
+                        "description": "Status Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/common.ErrorResponse"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -427,7 +503,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/statistics/top-red-links-month": {
+        "/api/stat/top-red-links-month": {
             "get": {
                 "description": "Displays a pie chart of the top 5 red (malicious) links accessed this month",
                 "produces": [
@@ -444,6 +520,12 @@ const docTemplate = `{
                             "type": "string"
                         }
                     },
+                    "401": {
+                        "description": "Status Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/common.ErrorResponse"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -453,7 +535,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/statistics/top-red-links-week": {
+        "/api/stat/top-red-links-week": {
             "get": {
                 "description": "Displays a pie chart of the top 5 red (malicious) links accessed this week",
                 "produces": [
@@ -468,6 +550,12 @@ const docTemplate = `{
                         "description": "HTML with embedded chart",
                         "schema": {
                             "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Status Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/common.ErrorResponse"
                         }
                     },
                     "500": {
