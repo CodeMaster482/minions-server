@@ -15,19 +15,19 @@ const (
 const (
 	GetScanResults = `
         SELECT response FROM scan_results
-        WHERE user_id IS NULL AND input_type = $1 AND request = $2
+        WHERE input_type = $1 AND request = $2
         FOR UPDATE
     `
 	UpdateScanResults = `
         UPDATE scan_results
         SET access_count = access_count + 1
-        WHERE user_id IS NULL AND input_type = $1 AND request = $2
+        WHERE input_type = $1 AND request = $2
     `
 
 	SaveScanResults = `
-       INSERT INTO scan_results (user_id, input_type, request, response, access_count, created_at)
-       VALUES (NULL, $1, $2, $3, 1, NOW())
-       ON CONFLICT (user_id, input_type, request) DO UPDATE
+       INSERT INTO scan_results (input_type, request, response, access_count, created_at)
+       VALUES ($1, $2, $3, 1, NOW())
+       ON CONFLICT (input_type, request) DO UPDATE
        SET access_count = scan_results.access_count + 1,
            response = EXCLUDED.response,
            created_at = NOW()
