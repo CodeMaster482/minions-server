@@ -74,7 +74,7 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.usecase.Register(r.Context(), user); err != nil {
-		common.RespondWithError(w, http.StatusInternalServerError, "Failed to register")
+		common.RespondWithError(w, http.StatusBadRequest, "Failed to register")
 		return
 	}
 

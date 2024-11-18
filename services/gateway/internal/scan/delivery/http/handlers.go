@@ -176,7 +176,7 @@ func (h *Handler) DomainIPUrl(w http.ResponseWriter, r *http.Request) {
 		userID = 0
 	}
 
-	logger.Info("User ID is (unregistered is 0)", userID)
+	logger.Info("User ID (unregistered is 0)", slog.Any("userID", userID))
 
 	// Проверяем наличие в Redis
 	var response models.ResponseFromAPI

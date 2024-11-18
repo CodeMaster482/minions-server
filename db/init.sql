@@ -11,7 +11,8 @@ CREATE TABLE IF NOT EXISTS scan_results (
     request TEXT NOT NULL,
     response JSONB NOT NULL,
     access_count INT DEFAULT 0,
-    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
+    UNIQUE (input_type, request)
 );
 
 CREATE INDEX IF NOT EXISTS idx_scan_results_request ON scan_results (input_type, request);
