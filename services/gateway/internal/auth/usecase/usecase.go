@@ -21,13 +21,13 @@ func New(postgresRepo auth.Repo, logger *slog.Logger) *Usecase {
 	}
 }
 
-func (uc *Usecase) Register(ctx context.Context, user common.User) error {
+func (uc *Usecase) Register(ctx context.Context, user common.User) (*common.User, error) {
 	existingUser, err := uc.postgresRepo.GetUserByUsername(ctx, user.Username)
 	if err != nil {
 		uc.logger.Warn(err.Error())
 
 		if existingUser != nil {
-			return errors.New("user already exists")
+			return nil, errors.New("user already exists")
 		}
 	}
 

@@ -73,10 +73,14 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		Password: string(hashedPassword),
 	}
 
-	if err := h.usecase.Register(r.Context(), user); err != nil {
+	createdUser, err := h.usecase.Register(r.Context(), user)
+	if err != nil {
 		common.RespondWithError(w, http.StatusBadRequest, "Failed to register")
 		return
 	}
+
+	h.sessionManager.Put(r.Context(), "user_id", createdUser.ID)
+	h.sessionManager.Put(r.Context(), "username", createdUser.Username)
 
 	common.RespondWithJSON(w, http.StatusCreated, map[string]string{"message": "User registered"})
 }

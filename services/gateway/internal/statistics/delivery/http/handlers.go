@@ -3,6 +3,8 @@ package handler
 import (
 	"github.com/alexedwards/scs/v2"
 	"net/http"
+	"strings"
+	"unicode/utf8"
 
 	"github.com/CodeMaster482/minions-server/common"
 	"github.com/CodeMaster482/minions-server/services/gateway/internal/statistics"
@@ -215,15 +217,15 @@ func (h *Handler) topLinksByZone(w http.ResponseWriter, r *http.Request, zone st
 }
 
 // createPieChartWithColors creates a pie chart with different colors for each slice
-func createPieChartWithColors(data []models.LinkStat, title string) *charts.Pie {
+func createPieChartWithColors(data []models.LinkStat, _ string) *charts.Pie {
 	pie := charts.NewPie()
 	pie.SetGlobalOptions(
 		charts.WithInitializationOpts(opts.Initialization{
-			Width:  "600px",
-			Height: "600px",
+			Width:  "450px",
+			Height: "300px",
 			Theme:  types.ThemeChalk,
 		}),
-		charts.WithTitleOpts(opts.Title{Title: title}),
+		//charts.WithTitleOpts(opts.Title{Title: title}),
 		charts.WithTooltipOpts(opts.Tooltip{
 			Show: opts.Bool(true),
 		}),
@@ -241,6 +243,21 @@ func createPieChartWithColors(data []models.LinkStat, title string) *charts.Pie 
 		})
 	}
 
+	for i, item := range pieItems {
+		name := item.Name
+
+		name = strings.TrimPrefix(name, "http://")
+
+		name = strings.TrimPrefix(name, "https://")
+
+		if utf8.RuneCountInString(name) > 25 {
+			runes := []rune(name)
+			name = string(runes[:25])
+			name += "..."
+		}
+		pieItems[i].Name = name
+	}
+
 	pie.AddSeries("Links", pieItems).
 		SetSeriesOptions(
 			charts.WithLabelOpts(
@@ -252,6 +269,14 @@ func createPieChartWithColors(data []models.LinkStat, title string) *charts.Pie 
 		)
 
 	return pie
+}
+
+func truncateString(str string, num int) string {
+	if utf8.RuneCountInString(str) > num {
+		runes := []rune(str)
+		return string(runes[:num])
+	}
+	return str
 }
 
 // createPieChart creates a pie chart for the given data

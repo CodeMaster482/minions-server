@@ -33,14 +33,14 @@ func New(db *sql.DB, logger *slog.Logger) *Repo {
 	}
 }
 
-func (r *Repo) CreateUser(ctx context.Context, u common.User) error {
+func (r *Repo) CreateUser(ctx context.Context, u common.User) (*common.User, error) {
 	err := r.db.QueryRowContext(ctx, CreateUser, u.Username, u.Password).Scan(&u.ID)
 	if err != nil {
 		r.logger.Error("Failed to create user", slog.Any("error", err))
-		return err
+		return nil, err
 	}
 
-	return nil
+	return &u, nil
 }
 
 func (r *Repo) GetUserByUsername(ctx context.Context, username string) (*common.User, error) {
