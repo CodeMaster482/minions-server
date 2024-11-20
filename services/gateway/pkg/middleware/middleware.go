@@ -94,6 +94,7 @@ func (m *Middleware) RequireAuthentication(next http.Handler) http.Handler {
 	})
 }
 
+// Пока не используем
 //func (m *Middleware) CSRFTokenMiddleware(next http.Handler) http.Handler {
 //	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 //		csrfToken := csrf.Token(r)
