@@ -44,7 +44,6 @@ func New(db *sql.DB, logger *slog.Logger) *Postgres {
 	}
 }
 
-// TopLinksByUserZoneAndPeriod returns the top N links for a user, zone, and time period
 func (p *Postgres) TopLinksByUserZoneAndPeriod(ctx context.Context, userID *int, zone string, since time.Time, limit int) ([]models.LinkStat, error) {
 	rows, err := p.db.QueryContext(ctx, TopLinksByUserZoneAndPeriod, *userID, zone, since, limit)
 	if err != nil {
@@ -73,7 +72,6 @@ func (p *Postgres) TopLinksByUserZoneAndPeriod(ctx context.Context, userID *int,
 	return results, nil
 }
 
-// TopLinksByZone returns the top N links for a zone over all time
 func (p *Postgres) TopLinksByZone(ctx context.Context, zone string, limit int) ([]models.LinkStat, error) {
 	rows, err := p.db.QueryContext(ctx, TopLinksByZone, zone, limit)
 	if err != nil {

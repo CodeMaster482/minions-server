@@ -22,7 +22,6 @@ func New(repo statistics.Repo, logger *slog.Logger) *Usecase {
 	}
 }
 
-// GetTopLinksByUserAndPeriod returns top N links for a user, period, and zone
 func (uc *Usecase) GetTopLinksByUserAndPeriod(ctx context.Context, userID *int, period string, zone string, limit int) ([]models.LinkStat, error) {
 	var since time.Time
 	now := time.Now()
@@ -46,7 +45,6 @@ func (uc *Usecase) GetTopLinksByUserAndPeriod(ctx context.Context, userID *int, 
 	return stats, nil
 }
 
-// GetTopLinksByZone returns top N links for a zone over all time
 func (uc *Usecase) GetTopLinksByZone(ctx context.Context, zone string, limit int) ([]models.LinkStat, error) {
 	stats, err := uc.repo.TopLinksByZone(ctx, zone, limit)
 	if err != nil {

@@ -117,7 +117,6 @@ func (h *Handler) topLinksByUserAndPeriod(w http.ResponseWriter, r *http.Request
 		slog.String("remote_addr", r.RemoteAddr),
 	)
 
-	// Получаем userID из сессии, если пользователь авторизован
 	userID, ok := h.sessionManager.Get(ctx, "user_id").(int)
 	if !ok {
 		common.RespondWithError(w, http.StatusUnauthorized, "Unauthorized")
@@ -125,7 +124,6 @@ func (h *Handler) topLinksByUserAndPeriod(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Получаем топовые ссылки из usecase
 	topLinks, err := h.usecase.GetTopLinksByUserAndPeriod(ctx, &userID, period, zone, 5)
 	if err != nil {
 		common.RespondWithError(w, http.StatusInternalServerError, "Failed to retrieve top links statistics")
@@ -133,13 +131,11 @@ func (h *Handler) topLinksByUserAndPeriod(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Ensure we always have 5 data points
+	//Должно быть минимум 5 ссылок, заполняем пустоту
 	topLinks = fillMissingData(topLinks, 5)
 
-	// Create pie chart
 	pieChart := createPieChartWithColors(topLinks, title)
 
-	// Create page and render
 	page := components.NewPage()
 	page.PageTitle = title
 	page.AddCharts(pieChart)
@@ -178,7 +174,6 @@ func (h *Handler) TopGreenLinksAllTime(w http.ResponseWriter, r *http.Request) {
 	h.topLinksByZone(w, r, "Green", "Топ 5 безопасных ссылок за все время")
 }
 
-// topLinksByZone is a helper method that handles the logic for the above handlers
 func (h *Handler) topLinksByZone(w http.ResponseWriter, r *http.Request, zone string, title string) {
 	ctx := r.Context()
 	logger := h.logger.With(
@@ -187,7 +182,6 @@ func (h *Handler) topLinksByZone(w http.ResponseWriter, r *http.Request, zone st
 		slog.String("remote_addr", r.RemoteAddr),
 	)
 
-	// Get top links from usecase
 	topLinks, err := h.usecase.GetTopLinksByZone(ctx, zone, 5)
 	if err != nil {
 		common.RespondWithError(w, http.StatusInternalServerError, "Failed to retrieve top links statistics")
@@ -195,13 +189,11 @@ func (h *Handler) topLinksByZone(w http.ResponseWriter, r *http.Request, zone st
 		return
 	}
 
-	// Ensure we always have 5 data points
+	// Должно быть минимум 5 ссылок, заполняем пустоту
 	topLinks = fillMissingData(topLinks, 5)
 
-	// Create pie chart with different colors for each slice
 	pieChart := createPieChartWithColors(topLinks, title)
 
-	// Create page and render
 	page := components.NewPage()
 	page.PageTitle = title
 	page.AddCharts(pieChart)
@@ -216,7 +208,6 @@ func (h *Handler) topLinksByZone(w http.ResponseWriter, r *http.Request, zone st
 	logger.Info("Successfully rendered top links", slog.String("title", title))
 }
 
-// createPieChartWithColors creates a pie chart with different colors for each slice
 func createPieChartWithColors(data []models.LinkStat, _ string) *charts.Pie {
 	pie := charts.NewPie()
 	pie.SetGlobalOptions(
@@ -279,7 +270,6 @@ func truncateString(str string, num int) string {
 	return str
 }
 
-// createPieChart creates a pie chart for the given data
 func createPieChart(data []models.LinkStat, title string) *charts.Pie {
 	pie := charts.NewPie()
 	pie.SetGlobalOptions(
@@ -315,7 +305,6 @@ func createPieChart(data []models.LinkStat, title string) *charts.Pie {
 	return pie
 }
 
-// fillMissingData fills missing data to ensure there are always 'length' items
 func fillMissingData(data []models.LinkStat, length int) []models.LinkStat {
 	for len(data) < length {
 		data = append(data, models.LinkStat{
