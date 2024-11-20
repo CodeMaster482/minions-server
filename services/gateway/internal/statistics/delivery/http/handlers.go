@@ -222,7 +222,7 @@ func createPieChartWithColors(data []models.LinkStat, _ string) *charts.Pie {
 	pie.SetGlobalOptions(
 		charts.WithInitializationOpts(opts.Initialization{
 			Width:  "450px",
-			Height: "300px",
+			Height: "350px",
 			Theme:  types.ThemeChalk,
 		}),
 		//charts.WithTitleOpts(opts.Title{Title: title}),
