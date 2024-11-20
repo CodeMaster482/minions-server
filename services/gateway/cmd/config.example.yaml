@@ -11,7 +11,7 @@ gateway:
   log_file: "/var/log/minions-server.log"
   session:
     cookie_secure: false # true при использовании HTTPS
-    #csrf_key: "YOUR_SECURE_RANDOM_CSRF_KEY" Unused in this version
+    #csrf_key: "YOUR_SECURE_RANDOM_CSRF_KEY" Пока не используем
     session_lifetime: "2400h"
     session_idle_timeout: "24h" # Таймаут неактивности
 

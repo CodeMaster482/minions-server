@@ -97,7 +97,7 @@ func (h *Handler) ScanScreen(w http.ResponseWriter, r *http.Request) {
 
 	// Подготовка данных для отправки в Yandex OCR API
 	data := map[string]interface{}{
-		"mimeType":      "application/octet-stream", // Или измените на mime-type файла
+		"mimeType":      "application/octet-stream", // mime-type файла
 		"languageCodes": []string{"*"},
 		"content":       base64Content,
 	}
@@ -108,7 +108,6 @@ func (h *Handler) ScanScreen(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Подготовка запроса к API
 	apiURL := "https://ocr.api.cloud.yandex.net/ocr/v1/recognizeText"
 	apiReq, err := http.NewRequestWithContext(ctx, "POST", apiURL, bytes.NewReader(payload))
 	if err != nil {
@@ -117,13 +116,11 @@ func (h *Handler) ScanScreen(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Установка заголовков
 	apiReq.Header.Set("Authorization", fmt.Sprintf("Bearer %s", h.iamToken)) // IAM токен
 	apiReq.Header.Set("Content-Type", "application/json")
 	apiReq.Header.Set("x-folder-id", h.folderID)
 	apiReq.Header.Set("x-data-logging-enabled", "true")
 
-	// Выполнение запроса к Yandex API
 	client := &http.Client{}
 	apiResp, err := client.Do(apiReq)
 	if err != nil {

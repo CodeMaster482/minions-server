@@ -45,18 +45,16 @@ func (uc *Usecase) DetermineInputType(input string) (string, string, error) {
 	// Удаляем возможные пробелы по краям строки
 	input = strings.TrimSpace(input)
 
-	// Проверяем, является ли входная строка IP-адресом
 	if net.ParseIP(input) != nil {
 		return "ip", input, nil
 	}
 
-	// Проверяем, является ли входная строка URL
 	u, err := url.Parse(input)
 	if err == nil && u.Scheme != "" && u.Host != "" {
 		// Попробуем развернуть ссылку, если это сокращенный URL
 		finalURL, err := uc.resolveRedirects(input)
 		if err == nil {
-			// Если удалось развернуть, проверяем тип по развернутому URL
+			// Проверяем тип по развернутому URL
 			uFinal, _ := url.Parse(finalURL)
 			if uFinal.Path != "" && uFinal.Path != "/" {
 				return "url", finalURL, nil
@@ -71,7 +69,6 @@ func (uc *Usecase) DetermineInputType(input string) (string, string, error) {
 		return "url", input, nil
 	}
 
-	// Проверяем, является ли входная строка доменным именем
 	if isValidDomain(input) {
 		return "domain", input, nil
 	}
@@ -211,7 +208,6 @@ func filterWords(words []string) []string {
 
 // isValidDomain проверяет, является ли строка валидным доменным именем.
 func isValidDomain(domain string) bool {
-	// Регулярное выражение для проверки доменного имени
 	var domainRegexp = regexp.MustCompile(`^([a-zA-Z0-9-]{1,63}\.)+[a-zA-Z]{2,}$`)
 	return domainRegexp.MatchString(domain)
 }
@@ -304,14 +300,12 @@ func (uc *Usecase) SaveResponse(ctx context.Context, respJson, zone, inputType, 
 	//	return ErrUnsavedZone
 	//}
 
-	// Сохраняем общий ответ
 	err := uc.postgresRepo.SaveResponse(ctx, respJson, inputType, requestParam)
 	if err != nil {
 		uc.logger.Error("Error saving general response", slog.Any("error", err))
 		return err
 	}
 
-	// Сохраняем пользовательскую статистику, если пользователь авторизован
 	if userID != 0 {
 		err = uc.SaveUserStats(ctx, zone, inputType, requestParam, userID)
 		if err != nil {

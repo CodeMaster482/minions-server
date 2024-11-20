@@ -176,7 +176,7 @@ func (p *Postgres) SaveUserResponse(ctx context.Context, userID int, zone, input
 	return nil
 }
 
-// Функция для очистки самых непопулярных записей в PostgreSQL
+// cleanupLeastPopularRecords Функция для очистки самых непопулярных записей в PostgreSQL
 func (p *Postgres) cleanupLeastPopularRecords(ctx context.Context, tx *sql.Tx) error {
 	var count int
 	err := tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM scan_results").Scan(&count)

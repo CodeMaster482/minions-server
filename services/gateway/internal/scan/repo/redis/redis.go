@@ -24,7 +24,6 @@ func New(redisPool *redis.Pool, logger *slog.Logger) *Redis {
 	}
 }
 
-// GetCachedResponse получает кэшированный ответ из Redis
 func (r *Redis) GetCachedResponse(ctx context.Context, inputType, requestParam string) (string, error) {
 	redisKey := fmt.Sprintf("scan:%s:%s", inputType, requestParam)
 
@@ -71,7 +70,6 @@ func (r *Redis) SetCachedResponse(ctx context.Context, savedResponse, inputType,
 	conn := r.redisPool.Get()
 	defer conn.Close()
 
-	// Используем SETEX для установки значения с TTL
 	_, err := conn.Do("SETEX", redisKey, int(RedisCacheExpiration.Seconds()), savedResponse)
 	if err != nil {
 		r.logger.Error("Failed to set cached response in Redis",
