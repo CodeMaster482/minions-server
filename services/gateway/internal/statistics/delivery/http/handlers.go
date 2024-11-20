@@ -232,14 +232,14 @@ func createPieChartWithColors(data []models.LinkStat, _ string) *charts.Pie {
 	)
 
 	var pieItems []opts.PieData
-	colors := []string{"#FF5733", "#33FF57", "#3357FF", "#FF33A8", "#A833FF"}
-	for i, stat := range data {
+	//colors := []string{"#FF5733", "#33FF57", "#3357FF", "#FF33A8", "#A833FF"}
+	for _, stat := range data {
 		pieItems = append(pieItems, opts.PieData{
 			Name:  stat.Request,
 			Value: stat.AccessCount,
-			ItemStyle: &opts.ItemStyle{
-				Color: colors[i%len(colors)],
-			},
+			//ItemStyle: &opts.ItemStyle{
+			//	Color: colors[i%len(colors)],
+			//},
 		})
 	}
 
