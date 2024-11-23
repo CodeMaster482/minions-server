@@ -24,6 +24,18 @@ var (
 	ErrRowNotFound     = errors.New("row not found in db")
 	ErrUnsavedZone     = errors.New("zone to save is not Red or Green")
 	ErrUnsupportedFlow = errors.New("unsupported request flow")
+
+	allowedHosts = map[string]struct{}{
+		"bit.ly":      {},
+		"tinyurl.com": {},
+		"t.co":        {},
+		"goo.gl":      {},
+		"rebrand.ly":  {},
+		"shorturl.at": {},
+		"surl.li":     {},
+		"clck.ru":     {},
+		"goo.su":      {},
+	}
 )
 
 type Usecase struct {
@@ -78,6 +90,17 @@ func (uc *Usecase) DetermineInputType(input string) (string, string, error) {
 
 // resolveRedirects развертывает сокращенные ссылки, возвращая финальный URL.
 func (uc *Usecase) resolveRedirects(inputURL string) (string, error) {
+	// Парсим inputURL и проверяем хост
+	parsedURL, err := url.Parse(inputURL)
+	if err != nil {
+		return "", fmt.Errorf("invalid URL: %w", err)
+	}
+
+	if _, ok := allowedHosts[parsedURL.Host]; !ok {
+
+		return inputURL, nil
+	}
+	uc.logger.Debug("host is recognized short-link service", "host", parsedURL.Host)
 
 	client := &http.Client{
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
