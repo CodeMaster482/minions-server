@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"github.com/alexedwards/scs/v2"
 	"net/http"
 	"strings"
@@ -30,7 +31,7 @@ func New(uc statistics.Usecase, logger *slog.Logger, sessionManager *scs.Session
 	}
 }
 
-// TopRedLinksDay handles requests for the top 5 red links for today for user
+// TopRedLinksDayWithPie handles requests for the top 5 RED links for today for user with pie.
 // @Summary Top 5 red links for today
 // @Description Displays a pie chart of the top 5 red (malicious) links accessed today
 // @Tags Statistics
@@ -39,11 +40,24 @@ func New(uc statistics.Usecase, logger *slog.Logger, sessionManager *scs.Session
 // @Failure 401 {object} common.ErrorResponse "Status Unauthorized"
 // @Failure 500 {object} common.ErrorResponse "Internal Server Error"
 // @Router /api/stat/top-red-links-day [get]
-func (h *Handler) TopRedLinksDay(w http.ResponseWriter, r *http.Request) {
-	h.topLinksByUserAndPeriod(w, r, "day", "Red", "Топ 5 опасных ссылок за сегодня")
+func (h *Handler) TopRedLinksDayWithPie(w http.ResponseWriter, r *http.Request) {
+	h.topLinksByUserAndPeriodWithPie(w, r, "day", "Red", "Топ 5 опасных ссылок за сегодня")
 }
 
-// TopGreenLinksDay handles requests for the top 5 green links for today for user
+// TopRedLinksDay handles requests for the top 5 red (malicious) links accessed today for the authenticated user.
+// @Summary Retrieve Top 5 Red Links for Today
+// @Description Returns a slice stat of the top 5 red (malicious) links accessed by the user today
+// @Tags Statistics
+// @Produce application/json
+// @Success 200 {array} models.LinkStat "Top 5 red links for today"
+// @Failure 401 {object} common.ErrorResponse "Unauthorized"
+// @Failure 500 {object} common.ErrorResponse "Internal Server Error"
+// @Router /api/v2/stat/top-red-links-day [get]
+func (h *Handler) TopRedLinksDay(w http.ResponseWriter, r *http.Request) {
+	h.topLinksByUserAndPeriod(w, r, "day", "Red")
+}
+
+// TopGreenLinksDayWithPie handles requests for the top 5 GREEN links for today for user with pie.
 // @Summary Top 5 green links for today
 // @Description Displays a pie chart of the top 5 green (safe) links accessed today
 // @Tags Statistics
@@ -52,11 +66,24 @@ func (h *Handler) TopRedLinksDay(w http.ResponseWriter, r *http.Request) {
 // @Failure 401 {object} common.ErrorResponse "Status Unauthorized"
 // @Failure 500 {object} common.ErrorResponse "Internal Server Error"
 // @Router /api/stat/top-green-links-day [get]
-func (h *Handler) TopGreenLinksDay(w http.ResponseWriter, r *http.Request) {
-	h.topLinksByUserAndPeriod(w, r, "day", "Green", "Топ 5 безопасных ссылок за сегодня")
+func (h *Handler) TopGreenLinksDayWithPie(w http.ResponseWriter, r *http.Request) {
+	h.topLinksByUserAndPeriodWithPie(w, r, "day", "Green", "Топ 5 безопасных ссылок за сегодня")
 }
 
-// TopRedLinksWeek handles requests for the top 5 red links for this week for user
+// TopGreenLinksDay handles requests for the top 5 GREEN links for today for user.
+// @Summary Top 5 green links for today
+// @Description Displays a slice stat of the top 5 green (safe) links accessed today
+// @Tags Statistics
+// @Produce html
+// @Success 200 {string} models.LinkStat "Top 5 green links for today"
+// @Failure 401 {object} common.ErrorResponse "Status Unauthorized"
+// @Failure 500 {object} common.ErrorResponse "Internal Server Error"
+// @Router /api/v2/stat/top-green-links-day [get]
+func (h *Handler) TopGreenLinksDay(w http.ResponseWriter, r *http.Request) {
+	h.topLinksByUserAndPeriod(w, r, "day", "Green")
+}
+
+// TopRedLinksWeekWithPie handles requests for the top 5 RED links for this week for user with pie.
 // @Summary Top 5 red links for this week
 // @Description Displays a pie chart of the top 5 red (malicious) links accessed this week
 // @Tags Statistics
@@ -65,11 +92,24 @@ func (h *Handler) TopGreenLinksDay(w http.ResponseWriter, r *http.Request) {
 // @Failure 401 {object} common.ErrorResponse "Status Unauthorized"
 // @Failure 500 {object} common.ErrorResponse "Internal Server Error"
 // @Router /api/stat/top-red-links-week [get]
-func (h *Handler) TopRedLinksWeek(w http.ResponseWriter, r *http.Request) {
-	h.topLinksByUserAndPeriod(w, r, "week", "Red", "Топ 5 опасных ссылок за неделю")
+func (h *Handler) TopRedLinksWeekWithPie(w http.ResponseWriter, r *http.Request) {
+	h.topLinksByUserAndPeriodWithPie(w, r, "week", "Red", "Топ 5 опасных ссылок за неделю")
 }
 
-// TopGreenLinksWeek handles requests for the top 5 green links for this week for user
+// TopRedLinksWeek handles requests for the top 5 RED links for this week for user.
+// @Summary Top 5 red links for this week
+// @Description Displays a slice stat of the top 5 red (malicious) links accessed this week
+// @Tags Statistics
+// @Produce html
+// @Success 200 {string} models.LinkStat "Top 5 red links for week"
+// @Failure 401 {object} common.ErrorResponse "Status Unauthorized"
+// @Failure 500 {object} common.ErrorResponse "Internal Server Error"
+// @Router /api/v2/stat/top-red-links-week [get]
+func (h *Handler) TopRedLinksWeek(w http.ResponseWriter, r *http.Request) {
+	h.topLinksByUserAndPeriod(w, r, "week", "Red")
+}
+
+// TopGreenLinksWeekWithPie handles requests for the top 5 GREEN links for this week for user with pie.
 // @Summary Top 5 green links for this week
 // @Description Displays a pie chart of the top 5 green (safe) links accessed this week
 // @Tags Statistics
@@ -78,11 +118,24 @@ func (h *Handler) TopRedLinksWeek(w http.ResponseWriter, r *http.Request) {
 // @Failure 401 {object} common.ErrorResponse "Status Unauthorized"
 // @Failure 500 {object} common.ErrorResponse "Internal Server Error"
 // @Router /api/stat/top-green-links-week [get]
-func (h *Handler) TopGreenLinksWeek(w http.ResponseWriter, r *http.Request) {
-	h.topLinksByUserAndPeriod(w, r, "week", "Green", "Топ 5 безопасных ссылок за неделю")
+func (h *Handler) TopGreenLinksWeekWithPie(w http.ResponseWriter, r *http.Request) {
+	h.topLinksByUserAndPeriodWithPie(w, r, "week", "Green", "Топ 5 безопасных ссылок за неделю")
 }
 
-// TopRedLinksMonth handles requests for the top 5 red links for this month for user
+// TopGreenLinksWeek handles requests for the top 5 GREEN links for this week for user.
+// @Summary Top 5 green links for this week
+// @Description Displays a slice stat of the top 5 green (safe) links accessed this week
+// @Tags Statistics
+// @Produce html
+// @Success 200 {string} models.LinkStat "Top 5 green links for week"
+// @Failure 401 {object} common.ErrorResponse "Status Unauthorized"
+// @Failure 500 {object} common.ErrorResponse "Internal Server Error"
+// @Router /api/v2/stat/top-green-links-week [get]
+func (h *Handler) TopGreenLinksWeek(w http.ResponseWriter, r *http.Request) {
+	h.topLinksByUserAndPeriod(w, r, "week", "Green")
+}
+
+// TopRedLinksMonthWithPie handles requests for the top 5 RED links for this month for user with pie.
 // @Summary Top 5 red links for this month
 // @Description Displays a pie chart of the top 5 red (malicious) links accessed this month
 // @Tags Statistics
@@ -91,11 +144,24 @@ func (h *Handler) TopGreenLinksWeek(w http.ResponseWriter, r *http.Request) {
 // @Failure 401 {object} common.ErrorResponse "Status Unauthorized"
 // @Failure 500 {object} common.ErrorResponse "Internal Server Error"
 // @Router /api/stat/top-red-links-month [get]
-func (h *Handler) TopRedLinksMonth(w http.ResponseWriter, r *http.Request) {
-	h.topLinksByUserAndPeriod(w, r, "month", "Red", "Топ 5 опасных ссылок за месяц")
+func (h *Handler) TopRedLinksMonthWithPie(w http.ResponseWriter, r *http.Request) {
+	h.topLinksByUserAndPeriodWithPie(w, r, "month", "Red", "Топ 5 опасных ссылок за месяц")
 }
 
-// TopGreenLinksMonth handles requests for the top 5 green links for this month for user
+// TopRedLinksMonth handles requests for the top 5 RED links for this month for user.
+// @Summary Top 5 red links for this month
+// @Description Displays a slice stat of the top 5 red (malicious) links accessed this month
+// @Tags Statistics
+// @Produce html
+// @Success 200 {string} models.LinkStat "Top 5 red links for month"
+// @Failure 401 {object} common.ErrorResponse "Status Unauthorized"
+// @Failure 500 {object} common.ErrorResponse "Internal Server Error"
+// @Router /api/v2/stat/top-red-links-month [get]
+func (h *Handler) TopRedLinksMonth(w http.ResponseWriter, r *http.Request) {
+	h.topLinksByUserAndPeriod(w, r, "month", "Red")
+}
+
+// TopGreenLinksMonthWithPie handles requests for the top 5 GREEN links for this month for user with pie.
 // @Summary Top 5 green links for this month
 // @Description Displays a pie chart of the top 5 green (safe) links accessed this month
 // @Tags Statistics
@@ -104,12 +170,24 @@ func (h *Handler) TopRedLinksMonth(w http.ResponseWriter, r *http.Request) {
 // @Failure 401 {object} common.ErrorResponse "Status Unauthorized"
 // @Failure 500 {object} common.ErrorResponse "Internal Server Error"
 // @Router /api/stat/top-green-links-month [get]
-func (h *Handler) TopGreenLinksMonth(w http.ResponseWriter, r *http.Request) {
-	h.topLinksByUserAndPeriod(w, r, "month", "Green", "Топ 5 безопасных ссылок за месяц")
+func (h *Handler) TopGreenLinksMonthWithPie(w http.ResponseWriter, r *http.Request) {
+	h.topLinksByUserAndPeriodWithPie(w, r, "month", "Green", "Топ 5 безопасных ссылок за месяц")
 }
 
-// topLinksByUserAndPeriod is a helper method that handles the logic for the above handlers
-func (h *Handler) topLinksByUserAndPeriod(w http.ResponseWriter, r *http.Request, period string, zone string, title string) {
+// TopGreenLinksMonth handles requests for the top 5 GREEN links for this month for user.
+// @Summary Top 5 green links for this month
+// @Description Displays a slice stat of the top 5 green (safe) links accessed this month
+// @Tags Statistics
+// @Produce html
+// @Success 200 {string} models.LinkStat "Top 5 green links for month"
+// @Failure 401 {object} common.ErrorResponse "Status Unauthorized"
+// @Failure 500 {object} common.ErrorResponse "Internal Server Error"
+// @Router /api/v2/stat/top-green-links-month [get]
+func (h *Handler) TopGreenLinksMonth(w http.ResponseWriter, r *http.Request) {
+	h.topLinksByUserAndPeriod(w, r, "month", "Green")
+}
+
+func (h *Handler) topLinksByUserAndPeriodWithPie(w http.ResponseWriter, r *http.Request, period string, zone string, title string) {
 	ctx := r.Context()
 	logger := h.logger.With(
 		slog.String("method", r.Method),
@@ -150,7 +228,42 @@ func (h *Handler) topLinksByUserAndPeriod(w http.ResponseWriter, r *http.Request
 	logger.Info("Successfully rendered top links", slog.String("title", title))
 }
 
-// TopRedLinksAllTime обрабатывает запросы на получение топ 5 красных (опасных) ссылок за все время.
+func (h *Handler) topLinksByUserAndPeriod(w http.ResponseWriter, r *http.Request, period string, zone string) {
+	ctx := r.Context()
+	logger := h.logger.With(
+		slog.String("method", r.Method),
+		slog.String("url", r.URL.String()),
+		slog.String("remote_addr", r.RemoteAddr),
+	)
+
+	userID, ok := h.sessionManager.Get(ctx, "user_id").(int)
+	if !ok {
+		common.RespondWithError(w, http.StatusUnauthorized, "Unauthorized")
+		logger.Error("Failed to retrieve user_id from session")
+		return
+	}
+
+	topLinks, err := h.usecase.GetTopLinksByUserAndPeriod(ctx, &userID, period, zone, 5)
+	if err != nil {
+		common.RespondWithError(w, http.StatusInternalServerError, "Failed to retrieve top links statistics")
+		logger.Error("Error retrieving top links", slog.Any("error", err))
+		return
+	}
+
+	topLinks = fillMissingData(topLinks, 5)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	if err := json.NewEncoder(w).Encode(topLinks); err != nil {
+		common.RespondWithError(w, http.StatusInternalServerError, "Failed to send data")
+		logger.Error("Error sending data", slog.Any("error", err))
+		return
+	}
+
+	logger.Info("Successfully sent top links", slog.String("period", period), slog.String("zone", zone))
+}
+
+// TopRedLinksAllTimeWithPie handles requests for the top 5 RED links for all time for user with pie.
 // @Summary Top 5 Red Links All Time
 // @Description Returns a pie chart of the top 5 red (malicious) links accessed all time.
 // @Tags Statistics
@@ -158,11 +271,23 @@ func (h *Handler) topLinksByUserAndPeriod(w http.ResponseWriter, r *http.Request
 // @Success 200 {string} string "HTML with embedded chart"
 // @Failure 500 {object} common.ErrorResponse "Internal Server Error"
 // @Router /api/stat/top-red-links-all-time [get]
-func (h *Handler) TopRedLinksAllTime(w http.ResponseWriter, r *http.Request) {
-	h.topLinksByZone(w, r, "Red", "Топ 5 опасных ссылок за все время")
+func (h *Handler) TopRedLinksAllTimeWithPie(w http.ResponseWriter, r *http.Request) {
+	h.topLinksByZoneWithPie(w, r, "Red", "Топ 5 опасных ссылок за все время")
 }
 
-// TopGreenLinksAllTime обрабатывает запросы на получение топ 5 зеленых (безопасных) ссылок за все время.
+// TopRedLinksAllTime handles requests for the top 5 RED links for all time for user.
+// @Summary Top 5 Red Links All Time
+// @Description Returns a slice stat of the top 5 red (malicious) links accessed all time.
+// @Tags Statistics
+// @Produce html
+// @Success 200 {string} models.LinkStat "Top 5 red links for all time"
+// @Failure 500 {object} common.ErrorResponse "Internal Server Error"
+// @Router /api/v2/stat/top-red-links-all-time [get]
+func (h *Handler) TopRedLinksAllTime(w http.ResponseWriter, r *http.Request) {
+	h.topLinksByZone(w, r, "Red")
+}
+
+// TopGreenLinksAllTimeWithPie handles requests for the GREEN 5 red links for all time for user with pie.
 // @Summary Top 5 Green Links All Time
 // @Description Returns a pie chart of the top 5 green (safe) links accessed all time.
 // @Tags Statistics
@@ -170,11 +295,23 @@ func (h *Handler) TopRedLinksAllTime(w http.ResponseWriter, r *http.Request) {
 // @Success 200 {string} string "HTML with embedded chart"
 // @Failure 500 {object} common.ErrorResponse "Internal Server Error"
 // @Router /api/stat/top-green-links-all-time [get]
-func (h *Handler) TopGreenLinksAllTime(w http.ResponseWriter, r *http.Request) {
-	h.topLinksByZone(w, r, "Green", "Топ 5 безопасных ссылок за все время")
+func (h *Handler) TopGreenLinksAllTimeWithPie(w http.ResponseWriter, r *http.Request) {
+	h.topLinksByZoneWithPie(w, r, "Green", "Топ 5 безопасных ссылок за все время")
 }
 
-func (h *Handler) topLinksByZone(w http.ResponseWriter, r *http.Request, zone string, title string) {
+// TopGreenLinksAllTime handles requests for the GREEN 5 red links for all time for user with pie.
+// @Summary Top 5 Green Links All Time
+// @Description Returns a slice stat of the top 5 green (safe) links accessed all time.
+// @Tags Statistics
+// @Produce html
+// @Success 200 {string} models.LinkStat "Top 5 green links for all time"
+// @Failure 500 {object} common.ErrorResponse "Internal Server Error"
+// @Router /api/v2/stat/top-green-links-all-time [get]
+func (h *Handler) TopGreenLinksAllTime(w http.ResponseWriter, r *http.Request) {
+	h.topLinksByZone(w, r, "Green")
+}
+
+func (h *Handler) topLinksByZoneWithPie(w http.ResponseWriter, r *http.Request, zone string, title string) {
 	ctx := r.Context()
 	logger := h.logger.With(
 		slog.String("method", r.Method),
@@ -206,6 +343,40 @@ func (h *Handler) topLinksByZone(w http.ResponseWriter, r *http.Request, zone st
 	}
 
 	logger.Info("Successfully rendered top links", slog.String("title", title))
+}
+
+func (h *Handler) topLinksByZone(w http.ResponseWriter, r *http.Request, zone string) {
+	ctx := r.Context()
+	logger := h.logger.With(
+		slog.String("method", r.Method),
+		slog.String("url", r.URL.String()),
+		slog.String("remote_addr", r.RemoteAddr),
+	)
+
+	topLinks, err := h.usecase.GetTopLinksByZone(ctx, zone, 5)
+	if err != nil {
+		common.RespondWithError(w, http.StatusInternalServerError, "Failed to retrieve top links statistics")
+		logger.Error("Error retrieving top links", slog.Any("error", err))
+		return
+	}
+
+	topLinks = fillMissingData(topLinks, 5)
+
+	jsonData, err := json.Marshal(topLinks)
+	if err != nil {
+		common.RespondWithError(w, http.StatusInternalServerError, "Failed to marshal data")
+		logger.Error("Error marshaling data", slog.Any("error", err))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if _, err := w.Write(jsonData); err != nil {
+		common.RespondWithError(w, http.StatusInternalServerError, "Failed to send data")
+		logger.Error("Error writing data to response", slog.Any("error", err))
+		return
+	}
+
+	logger.Info("Successfully sent top links", slog.String("zone", zone))
 }
 
 func createPieChartWithColors(data []models.LinkStat, _ string) *charts.Pie {

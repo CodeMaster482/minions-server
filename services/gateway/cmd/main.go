@@ -159,18 +159,35 @@ func run() error {
 	authRouter := r.PathPrefix("/").Subrouter()
 	authRouter.Use(mw.RequireAuthentication)
 
+	authRouterV2 := authRouter.PathPrefix("/v2").Subrouter()
+	rV2 := r.PathPrefix("/v2").Subrouter()
+
 	{
-		authRouter.HandleFunc("/stat/top-red-links-day", stat.TopRedLinksDay).Methods(http.MethodGet, http.MethodOptions)
-		authRouter.HandleFunc("/stat/top-green-links-day", stat.TopGreenLinksDay).Methods(http.MethodGet, http.MethodOptions)
+		authRouter.HandleFunc("/stat/top-red-links-day", stat.TopRedLinksDayWithPie).Methods(http.MethodGet, http.MethodOptions)
+		authRouter.HandleFunc("/stat/top-green-links-day", stat.TopGreenLinksDayWithPie).Methods(http.MethodGet, http.MethodOptions)
 
-		authRouter.HandleFunc("/stat/top-red-links-week", stat.TopRedLinksWeek).Methods(http.MethodGet, http.MethodOptions)
-		authRouter.HandleFunc("/stat/top-green-links-week", stat.TopGreenLinksWeek).Methods(http.MethodGet, http.MethodOptions)
+		authRouter.HandleFunc("/stat/top-red-links-week", stat.TopRedLinksWeekWithPie).Methods(http.MethodGet, http.MethodOptions)
+		authRouter.HandleFunc("/stat/top-green-links-week", stat.TopGreenLinksWeekWithPie).Methods(http.MethodGet, http.MethodOptions)
 
-		authRouter.HandleFunc("/stat/top-red-links-month", stat.TopRedLinksMonth).Methods(http.MethodGet, http.MethodOptions)
-		authRouter.HandleFunc("/stat/top-green-links-month", stat.TopGreenLinksMonth).Methods(http.MethodGet, http.MethodOptions)
+		authRouter.HandleFunc("/stat/top-red-links-month", stat.TopRedLinksMonthWithPie).Methods(http.MethodGet, http.MethodOptions)
+		authRouter.HandleFunc("/stat/top-green-links-month", stat.TopGreenLinksMonthWithPie).Methods(http.MethodGet, http.MethodOptions)
 
-		r.HandleFunc("/stat/top-red-links-all-time", stat.TopRedLinksAllTime).Methods(http.MethodGet, http.MethodOptions)
-		r.HandleFunc("/stat/top-green-links-all-time", stat.TopGreenLinksAllTime).Methods(http.MethodGet, http.MethodOptions)
+		r.HandleFunc("/stat/top-red-links-all-time", stat.TopRedLinksAllTimeWithPie).Methods(http.MethodGet, http.MethodOptions)
+		r.HandleFunc("/stat/top-green-links-all-time", stat.TopGreenLinksAllTimeWithPie).Methods(http.MethodGet, http.MethodOptions)
+	}
+
+	{
+		authRouterV2.HandleFunc("/stat/top-red-links-day", stat.TopRedLinksDay).Methods(http.MethodGet, http.MethodOptions)
+		authRouterV2.HandleFunc("/stat/top-green-links-day", stat.TopGreenLinksDay).Methods(http.MethodGet, http.MethodOptions)
+
+		authRouterV2.HandleFunc("/stat/top-red-links-week", stat.TopRedLinksWeek).Methods(http.MethodGet, http.MethodOptions)
+		authRouterV2.HandleFunc("/stat/top-green-links-week", stat.TopGreenLinksWeek).Methods(http.MethodGet, http.MethodOptions)
+
+		authRouterV2.HandleFunc("/stat/top-red-links-month", stat.TopRedLinksMonth).Methods(http.MethodGet, http.MethodOptions)
+		authRouterV2.HandleFunc("/stat/top-green-links-month", stat.TopGreenLinksMonth).Methods(http.MethodGet, http.MethodOptions)
+
+		rV2.HandleFunc("/stat/top-red-links-all-time", stat.TopRedLinksAllTime).Methods(http.MethodGet, http.MethodOptions)
+		rV2.HandleFunc("/stat/top-green-links-all-time", stat.TopGreenLinksAllTime).Methods(http.MethodGet, http.MethodOptions)
 	}
 
 	{
