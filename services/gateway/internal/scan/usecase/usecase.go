@@ -116,6 +116,9 @@ func (uc *Usecase) resolveRedirects(inputURL string) (string, error) {
 			return "", err
 		}
 
+		// Добавляем User-Agent, похожий на браузерный
+		req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64; rv:98.0) Gecko/20100101 Firefox/98.0")
+
 		resp, err := client.Do(req)
 		if err != nil {
 			uc.logger.Debug("get short link", slog.Any("error", err))
