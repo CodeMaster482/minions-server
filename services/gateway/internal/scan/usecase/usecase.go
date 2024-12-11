@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/CodeMaster482/minions-server/services/gateway/internal/scan"
@@ -54,33 +55,92 @@ func New(postgres scan.Postgres, redis scan.Redis, logger *slog.Logger) *Usecase
 
 // DetermineInputType определяет тип входной строки: IP, URL, домен или развернутую ссылку.
 func (uc *Usecase) DetermineInputType(input string) (string, string, error) {
-	// Удаляем возможные пробелы по краям строки
+	// Удаляем лишние пробелы
 	input = strings.TrimSpace(input)
 
+	// Проверяем, не является ли это чистым IP
 	if net.ParseIP(input) != nil {
 		return "ip", input, nil
 	}
 
-	u, err := url.Parse(input)
-	if err == nil && u.Scheme != "" && u.Host != "" {
-		// Попробуем развернуть ссылку, если это сокращенный URL
-		finalURL, err := uc.resolveRedirects(input)
-		if err == nil {
-			// Проверяем тип по развернутому URL
-			uFinal, _ := url.Parse(finalURL)
-			if uFinal.Path != "" && uFinal.Path != "/" {
-				return "url", finalURL, nil
+	// Проверяем формат IP:PORT (без схемы)
+	if parts := strings.Split(input, ":"); len(parts) == 2 {
+		hostPart, portPart := parts[0], parts[1]
+		if net.ParseIP(hostPart) != nil {
+			if _, err := strconv.Atoi(portPart); err == nil {
+				// Это IP:PORT - убираем порт
+				return "ip", hostPart, nil
 			}
-			return "domain", finalURL, nil
 		}
-
-		// Если путь пустой или "/", считаем это доменом
-		if u.Path == "" || u.Path == "/" {
-			return "domain", input, nil
-		}
-		return "url", input, nil
 	}
 
+	// Пытаемся распарсить как URL
+	u, err := url.Parse(input)
+	if err == nil && u.Scheme != "" && u.Host != "" {
+		// Попытка развернуть ссылку, если это сокращенный URL
+		finalURL, err := uc.resolveRedirects(input)
+		if err == nil && finalURL != "" {
+			// Повторно парсим финальный URL
+			uFinal, _ := url.Parse(finalURL)
+			if uFinal != nil && uFinal.Host != "" {
+				// Удаляем порт
+				host := uFinal.Hostname()
+
+				// Сформируем строку без схемы и порта
+				pathPart := ""
+				if uFinal.Path != "" && uFinal.Path != "/" {
+					pathPart = uFinal.Path
+				}
+				if uFinal.RawQuery != "" {
+					pathPart += "?" + uFinal.RawQuery
+				}
+				if uFinal.Fragment != "" {
+					pathPart += "#" + uFinal.Fragment
+				}
+
+				finalStr := host + pathPart
+
+				// Определяем тип по развернутому URL
+				if net.ParseIP(host) != nil && pathPart == "" {
+					return "ip", host, nil
+				}
+				if isValidDomain(host) && pathPart == "" {
+					return "domain", host, nil
+				}
+				return "url", finalStr, nil
+			}
+		}
+
+		// Если редирект не дал результата или произошла ошибка — определяем на основе текущего значения
+		// Удаляем порт у текущего URL
+		host := u.Hostname()
+
+		pathPart := ""
+		if u.Path != "" && u.Path != "/" {
+			pathPart = u.Path
+		}
+		if u.RawQuery != "" {
+			pathPart += "?" + u.RawQuery
+		}
+		if u.Fragment != "" {
+			pathPart += "#" + u.Fragment
+		}
+
+		finalStr := host + pathPart
+
+		// Проверяем IP без пути
+		if net.ParseIP(host) != nil && pathPart == "" {
+			return "ip", host, nil
+		}
+		// Проверяем домен без пути
+		if isValidDomain(host) && pathPart == "" {
+			return "domain", host, nil
+		}
+		// Иначе URL
+		return "url", finalStr, nil
+	}
+
+	// Если не URL и не IP, проверяем домен
 	if isValidDomain(input) {
 		return "domain", input, nil
 	}
