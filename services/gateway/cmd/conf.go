@@ -20,6 +20,7 @@ type GatewayConfig struct {
 	IdleTimeout       time.Duration `yaml:"idle_timeout"`
 	ReadHeaderTimeout time.Duration `yaml:"read_header_timeout"`
 	KasperskyAPIKey   string        `yaml:"kaspersky_api_key"`
+	VirusTotalAPIKey  string        `yaml:"virus_total_api_key"`
 	IamToken          string        `yaml:"iam_token"`
 	FolderID          string        `yaml:"folder_id"`
 	LogFormat         string        `yaml:"log_format"`
@@ -78,7 +79,6 @@ func LoadConfig(filename string) (*Config, error) {
 	file, err := os.Open(filename)
 	if err != nil {
 		if os.IsNotExist(err) {
-			// Если файл не найден, используем дефолтные значения
 			log.Printf("Config file %s not found, using default values\n", filename)
 			return cfg, nil
 		}
@@ -91,9 +91,6 @@ func LoadConfig(filename string) (*Config, error) {
 		return nil, err
 	}
 
-	// Устанавливаем значения по умолчанию, если они не заданы в конфиге
-
-	// Параметры сервера
 	if cfg.Gateway.Address == "" {
 		cfg.Gateway.Address = ":8080"
 	}
@@ -110,25 +107,20 @@ func LoadConfig(filename string) (*Config, error) {
 		cfg.Gateway.LogFormat = "json"
 	}
 
-	// Kaspersky API Key
 	if cfg.Gateway.KasperskyAPIKey == "" {
-		// Если API-ключ не задан в конфигурации, пытаемся получить его из переменной окружения
 		cfg.Gateway.KasperskyAPIKey = os.Getenv("KASPERSKY_API_KEY")
 		if cfg.Gateway.KasperskyAPIKey == "" {
 			return nil, errors.New("kaspersky API key is not provided in config file or environment variable")
 		}
 	}
 
-	// IAM_TOKEN API Key
 	if cfg.Gateway.IamToken == "" {
-		// Если API-ключ не задан в конфигурации, пытаемся получить его из переменной окружения
 		cfg.Gateway.IamToken = os.Getenv("IAM_TOKEN")
 		if cfg.Gateway.IamToken == "" {
 			return nil, errors.New("yandex API key is not provided in config file or environment variable")
 		}
 	}
 
-	// Конфигурация базы данных PostgreSQL
 	if cfg.Postgres.Host == "" {
 		cfg.Postgres.Host = "localhost"
 	}
@@ -148,7 +140,6 @@ func LoadConfig(filename string) (*Config, error) {
 		cfg.Postgres.SSLMode = "disable"
 	}
 
-	// Конфигурация redis
 	if cfg.Redis.Addr == "" {
 		cfg.Redis.Addr = "localhost:6379"
 	}

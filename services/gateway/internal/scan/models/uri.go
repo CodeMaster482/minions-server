@@ -28,6 +28,36 @@ type ResponseFromAPI struct {
 	IpWhoIs *IpWhoIs `json:"IpWhoIs,omitempty"`
 }
 
+type VtData struct {
+	Data struct {
+		Attributes struct {
+			Categories         map[string]string `json:"categories"`
+			LastAnalysisStats  map[string]int    `json:"last_analysis_stats"`
+			LastAnalysisResult map[string]struct {
+				Category   string `json:"category"`
+				EngineName string `json:"engine_name"`
+				Method     string `json:"method"`
+				Result     string `json:"result"`
+			} `json:"last_analysis_results"`
+
+			Reputation           int      `json:"reputation"`
+			Tags                 []string `json:"tags"`
+			URL                  string   `json:"url"`
+			Asn                  int      `json:"asn"`
+			AsOwner              string   `json:"as_owner"`
+			Country              string   `json:"country"`
+			Network              string   `json:"network"`
+			Whois                string   `json:"whois"`
+			WhoisDate            int      `json:"whois_date"`
+			TimesSubmitted       int      `json:"times_submitted"`
+			LastFinalURL         string   `json:"last_final_url"`
+			LastModificationDate int      `json:"last_modification_date"`
+		} `json:"attributes"`
+		Type string `json:"type"`
+		ID   string `json:"id"`
+	} `json:"data"`
+}
+
 // CategoryWithZone представляет категорию и ее зону
 type CategoryWithZone struct {
 	// Название категории

@@ -2,6 +2,7 @@ package http
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -20,47 +21,39 @@ import (
 const (
 	MissingRequestParam      = "Missing 'request' query parameter"
 	InvalidInput             = "Invalid input"
-	UnsupportedInputType     = "Unsupported input type"
-	FailedToCreateRequest    = "Failed to create request"
-	FailedToSendRequest      = "Failed to send request to Kaspersky API"
-	FailedToReadResponse     = "Failed to read response from Kaspersky API"
-	FailedToParseResponse    = "Failed to parse response from Kaspersky API"
 	FailedToEncodeResponse   = "Failed to encode response"
 	KasperskyUnexpectedError = "Kaspersky API returned unexpected error"
 
-	// Сообщения об ошибках для DomainIPUrl
 	BadRequestMsg          = "Bad Request: Incorrect query."
 	UnauthorizedMsg        = "Unauthorized: Authentication failed."
-	ForbiddenMsg           = "Forbidden: Quota or request limit exceeded."
-	NotFoundMsg            = "Not Found: Lookup results not found."
 	InternalServerErrorMsg = "Internal Server Error"
 
-	// Сообщения об ошибках для ScanFile
 	ScanFileBadRequestMsg          = "Bad Request: Failed to process the uploaded file."
 	ScanFilePayloadTooLargeMsg     = "Payload Too Large: File size exceeds the 256 MB limit."
 	ScanFileInternalServerErrorMsg = "Internal Server Error: Unable to process the file."
 )
 
-// Size constants
 const (
 	MB            = 1 << 20
-	MaxUploadSize = 256 * MB // Максимальный размер файла 256MB
+	MaxUploadSize = 256 * MB
 )
 
 type Handler struct {
 	iamToken       string
 	apiKey         string
+	vtApiKey       string
 	folderID       string
 	usecase        scan.Usecase
 	sessionManager *scs.SessionManager
 	logger         *slog.Logger
 }
 
-func New(apiKey string, iamToken string, folderID string, uc scan.Usecase, sessionManager *scs.SessionManager, logger *slog.Logger) *Handler {
+func New(apiKey string, vtApiKey, iamToken string, folderID string, uc scan.Usecase, sessionManager *scs.SessionManager, logger *slog.Logger) *Handler {
 	return &Handler{
 		iamToken:       iamToken,
 		folderID:       folderID,
 		apiKey:         apiKey,
+		vtApiKey:       vtApiKey,
 		usecase:        uc,
 		sessionManager: sessionManager,
 		logger:         logger,
@@ -161,7 +154,7 @@ func (h *Handler) DomainIPUrl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Info("Request from user", requestParam)
+	logger.Info("Request from user", slog.String("requestParam", requestParam))
 
 	inputType, requestParam, err := h.usecase.DetermineInputType(requestParam)
 	if err != nil {
@@ -170,97 +163,156 @@ func (h *Handler) DomainIPUrl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Получаем userID из сессии, если пользователь авторизован
 	userID, ok := h.sessionManager.Get(ctx, "user_id").(int)
 	if !ok {
 		userID = 0
 	}
-
 	logger.Info("User ID (unregistered is 0)", slog.Any("userID", userID))
 
-	// Проверяем наличие в Redis
+	// Сначала проверяем Redis
 	var response models.ResponseFromAPI
 	cachedResponse, err := h.usecase.CachedResponse(ctx, inputType, requestParam)
-	if err == nil {
-		// Если найдено в Redis, возвращаем кэшированный ответ
+	if err == nil && cachedResponse != "" {
 		if err := json.Unmarshal([]byte(cachedResponse), &response); err == nil {
-			w.WriteHeader(http.StatusOK)
-			w.Header().Set("Content-Type", "application/json")
-			err = json.NewEncoder(w).Encode(response)
-			if err != nil {
-				common.RespondWithError(w, http.StatusInternalServerError, FailedToEncodeResponse)
-				logger.Error(FailedToEncodeResponse, slog.Any("error", err))
-
-				return
-			}
-
-			// Обновляем счётчики
-			_, err = h.usecase.SavedResponse(ctx, inputType, requestParam)
-			if err != nil {
-				logger.Warn("Can't update count in PostgreSQL", slog.Any("error", err))
-			}
-
-			// Обновляем пользовательский счётчик, если пользователь авторизован
-			if userID != 0 {
-				err = h.usecase.SaveUserStats(ctx, response.Zone, inputType, requestParam, userID)
-				if err != nil {
-					logger.Warn("Can't update user stats in PostgreSQL", slog.Any("error", err))
-				}
-			}
-
+			// Успешно спарсили кэш
+			h.returnCachedOrDBResponse(ctx, w, response, inputType, requestParam, userID, logger)
 			logger.Info("Returning cached response from Redis", slog.String("request", requestParam))
 			return
 		}
-		// Если произошла ошибка при разборе кэша, продолжаем обработку
+		// Если ошибка парсинга кэша, идём дальше
 	}
 
-	// Ищем в PostgreSQL
+	// Проверяем PostgreSQL
 	savedResponse, err := h.usecase.SavedResponse(ctx, inputType, requestParam)
-	if err == nil {
-		if len(savedResponse) != 0 {
-			// Если найдено в PostgreSQL, обновляем Redis и возвращаем ответ
-			if err := json.Unmarshal([]byte(savedResponse), &response); err == nil {
-				err := h.usecase.SetCachedResponse(ctx, savedResponse, inputType, requestParam)
-				if err != nil {
-					logger.Warn("Cache is not updated in Redis", slog.Any("error", err))
-				}
-
-				w.WriteHeader(http.StatusOK)
-				w.Header().Set("Content-Type", "application/json")
-				err = json.NewEncoder(w).Encode(response)
-				if err != nil {
-					common.RespondWithError(w, http.StatusInternalServerError, FailedToEncodeResponse)
-					logger.Error(FailedToEncodeResponse, slog.Any("error", err))
-
-					return
-				}
-
-				// Обновляем счётчики
-				_, err = h.usecase.SavedResponse(ctx, inputType, requestParam)
-				if err != nil {
-					logger.Warn("Can't update count in PostgreSQL", slog.Any("error", err))
-				}
-
-				// Обновляем пользовательский счётчик, если пользователь авторизован
-				if userID != 0 {
-					err = h.usecase.SaveUserStats(ctx, response.Zone, inputType, requestParam, userID)
-					if err != nil {
-						logger.Warn("Can't update user stats in PostgreSQL", slog.Any("error", err))
-					}
-				}
-
-				logger.Info("Response from DB was successfully found", slog.String("request", requestParam))
-				return
+	if err == nil && len(savedResponse) != 0 {
+		if err := json.Unmarshal([]byte(savedResponse), &response); err == nil {
+			// Нашли в БД - обновляем Redis и возвращаем
+			if cacheErr := h.usecase.SetCachedResponse(ctx, savedResponse, inputType, requestParam); cacheErr != nil {
+				logger.Warn("Cache is not updated in Redis", slog.Any("error", cacheErr))
 			}
-		} else {
-			logger.Warn("Got empty saved response")
+			h.returnCachedOrDBResponse(ctx, w, response, inputType, requestParam, userID, logger)
+			logger.Info("Response from DB was successfully found", slog.String("request", requestParam))
+			return
 		}
-	} else if !errors.Is(err, usecase.ErrRowNotFound) {
+	} else if err != nil && !errors.Is(err, usecase.ErrRowNotFound) {
 		common.RespondWithError(w, http.StatusInternalServerError, InternalServerErrorMsg)
-		logger.Error("No records found in PostgreSQL", slog.Any("error", err))
-
+		logger.Error("Error reading from PostgreSQL", slog.Any("error", err))
 		return
 	}
+
+	// Если данные не нашлись ни в Redis, ни в БД, то шлём запросы в обе API
+	ctxWithCancel, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	type apiResult struct {
+		response models.ResponseFromAPI
+		err      error
+	}
+
+	resultCh := make(chan apiResult, 2)
+
+	go func() {
+		respData, fetchErr := h.fetchKaspersky(ctxWithCancel, inputType, requestParam)
+		select {
+		case resultCh <- apiResult{response: respData, err: fetchErr}:
+		case <-ctxWithCancel.Done():
+		}
+	}()
+
+	go func() {
+		respData, fetchErr := h.fetchVirusTotal(ctxWithCancel, inputType, requestParam)
+		select {
+		case resultCh <- apiResult{response: respData, err: fetchErr}:
+		case <-ctxWithCancel.Done():
+		}
+	}()
+
+	// Ждём первый успешный ответ
+	var finalResult apiResult
+	var received int
+	for {
+		select {
+		case <-ctxWithCancel.Done():
+			// Если контекст отменён
+			if finalResult.err == nil && finalResult.response.Zone == "" {
+				finalResult.err = errors.New("context was canceled, no response chosen")
+			}
+			goto PROCESS_RESULT
+		case res := <-resultCh:
+			received++
+			if res.err == nil {
+				finalResult = res
+				// отменяем контекст, чтобы прервать вторую горутину
+				cancel()
+				goto PROCESS_RESULT
+			}
+			// Если получили ошибку, но это уже второй ответ
+			if received == 2 {
+				finalResult.err = errors.New("both requests failed")
+				goto PROCESS_RESULT
+			}
+		}
+	}
+
+PROCESS_RESULT:
+	if finalResult.err != nil {
+		logger.Error("Both Kaspersky and VirusTotal failed", slog.Any("error", finalResult.err))
+		common.RespondWithError(w, http.StatusInternalServerError, InternalServerErrorMsg)
+		return
+	}
+
+	response = finalResult.response
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+
+	respJson, err := json.Marshal(response)
+	if err != nil {
+		common.RespondWithError(w, http.StatusInternalServerError, FailedToEncodeResponse)
+		logger.Error(FailedToEncodeResponse, slog.Any("error", err))
+		return
+	}
+	w.Write(respJson)
+
+	err = h.usecase.SaveResponse(ctx, string(respJson), response.Zone, inputType, requestParam, userID)
+	if err != nil {
+		logger.Warn("Error saving response", slog.Any("error", err))
+	}
+	err = h.usecase.SetCachedResponse(ctx, string(respJson), inputType, requestParam)
+	if err != nil {
+		logger.Warn("Cache is not updated in Redis", slog.Any("error", err))
+	}
+
+	logger.Info("Successfully processed request (first response wins)",
+		slog.String("request_param", requestParam),
+		slog.String("zone", response.Zone))
+}
+
+func (h *Handler) returnCachedOrDBResponse(ctx context.Context, w http.ResponseWriter, resp models.ResponseFromAPI,
+	inputType, requestParam string, userID int, logger *slog.Logger) {
+	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		common.RespondWithError(w, http.StatusInternalServerError, FailedToEncodeResponse)
+		logger.Error(FailedToEncodeResponse, slog.Any("error", err))
+		return
+	}
+
+	_, err := h.usecase.SavedResponse(ctx, inputType, requestParam)
+	if err != nil {
+		logger.Warn("Can't update count in PostgreSQL", slog.Any("error", err))
+	}
+
+	if userID != 0 {
+		err = h.usecase.SaveUserStats(ctx, resp.Zone, inputType, requestParam, userID)
+		if err != nil {
+			logger.Warn("Can't update user stats in PostgreSQL", slog.Any("error", err))
+		}
+	}
+}
+
+func (h *Handler) fetchKaspersky(ctx context.Context, inputType, requestParam string) (models.ResponseFromAPI, error) {
+	var response models.ResponseFromAPI
 
 	var apiPath string
 	switch inputType {
@@ -271,20 +323,13 @@ func (h *Handler) DomainIPUrl(w http.ResponseWriter, r *http.Request) {
 	case "domain":
 		apiPath = "/api/v1/search/domain"
 	default:
-		common.RespondWithError(w, http.StatusBadRequest, UnsupportedInputType)
-		logger.Error(UnsupportedInputType, slog.String("inputType", inputType))
-
-		return
+		return response, errors.New("unsupported input type for Kaspersky")
 	}
 
 	apiURL := fmt.Sprintf("https://opentip.kaspersky.com%s?request=%s", apiPath, url.QueryEscape(requestParam))
-
-	req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
 	if err != nil {
-		common.RespondWithError(w, http.StatusInternalServerError, InternalServerErrorMsg)
-		logger.Error(FailedToCreateRequest, slog.Any("error", err))
-
-		return
+		return response, fmt.Errorf("kaspersky request create failed: %w", err)
 	}
 
 	req.Header.Set("x-api-key", h.apiKey)
@@ -292,80 +337,188 @@ func (h *Handler) DomainIPUrl(w http.ResponseWriter, r *http.Request) {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		common.RespondWithError(w, http.StatusInternalServerError, InternalServerErrorMsg)
-		logger.Error(FailedToSendRequest, slog.Any("error", err))
-
-		return
+		return response, fmt.Errorf("kaspersky request send failed: %w", err)
 	}
 	defer resp.Body.Close()
 
-	switch resp.StatusCode {
-	case http.StatusOK:
-		// Всё прошло хорошо, парсим ответ
-	case http.StatusBadRequest:
-		common.RespondWithError(w, http.StatusBadRequest, BadRequestMsg)
-		logger.Error(BadRequestMsg)
-		return
-	case http.StatusUnauthorized:
-		common.RespondWithError(w, http.StatusUnauthorized, UnauthorizedMsg)
-		logger.Error(UnauthorizedMsg)
-		return
-	case http.StatusForbidden:
-		common.RespondWithError(w, http.StatusForbidden, ForbiddenMsg)
-		logger.Error(ForbiddenMsg)
-		return
-	case http.StatusNotFound:
-		common.RespondWithError(w, http.StatusNotFound, NotFoundMsg)
-		logger.Error(NotFoundMsg)
-		return
-	default:
-		common.RespondWithError(w, http.StatusInternalServerError, KasperskyUnexpectedError)
-		logger.Error(KasperskyUnexpectedError, slog.Int("status_code", resp.StatusCode))
-		return
+	if resp.StatusCode != http.StatusOK {
+		return response, fmt.Errorf("kaspersky unexpected status code: %d", resp.StatusCode)
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		common.RespondWithError(w, http.StatusInternalServerError, InternalServerErrorMsg)
-		logger.Error(FailedToReadResponse, slog.Any("error", err))
-
-		return
+		return response, fmt.Errorf("kaspersky read body failed: %w", err)
+	}
+	if err := json.Unmarshal(body, &response); err != nil {
+		return response, fmt.Errorf("kaspersky parse json failed: %w", err)
 	}
 
-	var apiResponse models.ResponseFromAPI
-	if err := json.Unmarshal(body, &apiResponse); err != nil {
-		common.RespondWithError(w, http.StatusInternalServerError, InternalServerErrorMsg)
-		logger.Error(FailedToParseResponse, slog.Any("error", err))
+	return response, nil
+}
 
-		return
+func (h *Handler) fetchVirusTotal(ctx context.Context, inputType, requestParam string) (models.ResponseFromAPI, error) {
+	var out models.ResponseFromAPI
+
+	var vtURL string
+	switch inputType {
+	case "ip":
+		vtURL = fmt.Sprintf("https://www.virustotal.com/api/v3/ip_addresses/%s", url.PathEscape(requestParam))
+	case "domain":
+		vtURL = fmt.Sprintf("https://www.virustotal.com/api/v3/domains/%s", url.PathEscape(requestParam))
+	case "url":
+		vtURL = fmt.Sprintf("https://www.virustotal.com/api/v3/urls/%s", url.PathEscape(requestParam))
+	default:
+		return out, errors.New("unsupported input type for VirusTotal")
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-
-	respJson, err := json.Marshal(apiResponse)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, vtURL, nil)
 	if err != nil {
-		common.RespondWithError(w, http.StatusInternalServerError, FailedToEncodeResponse)
-		logger.Error(FailedToEncodeResponse, slog.Any("error", err))
-
-		return
+		return out, fmt.Errorf("virustotal request create failed: %w", err)
 	}
 
-	w.Write(respJson)
+	req.Header.Set("x-apikey", h.vtApiKey)
+	req.Header.Set("accept", "application/json")
 
-	err = h.usecase.SaveResponse(ctx, string(respJson), apiResponse.Zone, inputType, requestParam, userID)
+	client := &http.Client{}
+	resp, err := client.Do(req)
 	if err != nil {
-		logger.Warn("Error saving response", slog.Any("error", err))
+		return out, fmt.Errorf("virustotal request send failed: %w", err)
+	}
+	defer resp.Body.Close()
 
-		return
+	if resp.StatusCode != http.StatusOK {
+		return out, fmt.Errorf("virustotal unexpected status code: %d", resp.StatusCode)
 	}
 
-	err = h.usecase.SetCachedResponse(ctx, string(respJson), inputType, requestParam)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		logger.Warn("Cache is not updated in Redis", slog.Any("error", err))
+		return out, fmt.Errorf("virustotal read body failed: %w", err)
 	}
 
-	logger.Info("Successfully processed request", slog.String("request_param", requestParam), slog.String("zone", apiResponse.Zone))
+	var vtResp models.VtData
+	if err := json.Unmarshal(body, &vtResp); err != nil {
+		return out, fmt.Errorf("virustotal parse json failed: %w", err)
+	}
+
+	maliciousCount := vtResp.Data.Attributes.LastAnalysisStats["malicious"]
+	suspiciousCount := vtResp.Data.Attributes.LastAnalysisStats["suspicious"]
+
+	var zone string
+	switch {
+	case maliciousCount > 0:
+		zone = "Red"
+	case suspiciousCount > 0:
+		zone = "Grey"
+	default:
+		zone = "Green"
+	}
+
+	out.Zone = zone
+
+	var categories []string
+	for catKey, catVal := range vtResp.Data.Attributes.Categories {
+		categories = append(categories, fmt.Sprintf("%s: %s", catKey, catVal))
+	}
+
+	for _, tag := range vtResp.Data.Attributes.Tags {
+		categories = append(categories, tag)
+	}
+	out.Categories = categories
+
+	switch inputType {
+	case "ip":
+		ipAttrib := vtResp.Data.Attributes
+
+		out.IpGeneralInfo = &models.IpGeneralInfo{
+			Ip:          requestParam,
+			CountryCode: ipAttrib.Country,
+			Categories:  categories,
+			HitsCount: ipAttrib.LastAnalysisStats["harmless"] +
+				ipAttrib.LastAnalysisStats["malicious"] +
+				ipAttrib.LastAnalysisStats["suspicious"] +
+				ipAttrib.LastAnalysisStats["timeout"] +
+				ipAttrib.LastAnalysisStats["undetected"],
+			FirstSeen: fmt.Sprintf("%d", ipAttrib.LastModificationDate),
+		}
+
+		if ipAttrib.Reputation < 0 {
+			out.IpGeneralInfo.Status = "blacklisted"
+		} else {
+			out.IpGeneralInfo.Status = "known"
+		}
+
+		if ipAttrib.Whois != "" {
+			asnInfos := []models.AsnInfo{}
+			if ipAttrib.Asn > 0 {
+				asnInfos = append(asnInfos, models.AsnInfo{
+					Number:      ipAttrib.Asn,
+					Description: []string{ipAttrib.AsOwner},
+				})
+			}
+
+			out.IpWhoIs = &models.IpWhoIs{
+				Asn: asnInfos,
+				Net: &models.NetInfo{
+					Name:        ipAttrib.Network,
+					Description: ipAttrib.AsOwner,
+					Created:     fmt.Sprintf("%d", ipAttrib.WhoisDate),
+				},
+			}
+		}
+
+	case "domain":
+		domainAttrib := vtResp.Data.Attributes
+
+		out.DomainGeneralInfo = &models.DomainGeneralInfo{
+			Domain:     requestParam,
+			FilesCount: domainAttrib.LastAnalysisStats["malicious"] + domainAttrib.LastAnalysisStats["suspicious"],
+			UrlsCount: domainAttrib.LastAnalysisStats["harmless"] +
+				domainAttrib.LastAnalysisStats["malicious"] +
+				domainAttrib.LastAnalysisStats["suspicious"] +
+				domainAttrib.LastAnalysisStats["timeout"] +
+				domainAttrib.LastAnalysisStats["undetected"],
+			HitsCount:  int(domainAttrib.TimesSubmitted),
+			Categories: categories,
+			Ipv4Count:  0,
+		}
+
+		if domainAttrib.Whois != "" {
+			out.DomainWhoIsInfo = &models.WhoIsInfo{
+				DomainName:               requestParam,
+				RegistrationOrganization: domainAttrib.Whois,
+				Created:                  fmt.Sprintf("%d", domainAttrib.WhoisDate),
+			}
+		}
+
+	case "url":
+		urlAttrib := vtResp.Data.Attributes
+
+		out.UrlGeneralInfo = &models.UrlGeneralInfo{
+			Url: requestParam,
+			Host: func() string {
+				if urlAttrib.LastFinalURL != "" {
+					u, err := url.Parse(urlAttrib.LastFinalURL)
+					if err == nil {
+						return u.Host
+					}
+				}
+				return ""
+			}(),
+			FilesCount: urlAttrib.LastAnalysisStats["malicious"] + urlAttrib.LastAnalysisStats["suspicious"],
+			Ipv4Count:  int(urlAttrib.TimesSubmitted),
+			Categories: categories,
+		}
+
+		if urlAttrib.Whois != "" {
+			out.UrlDomainWhoIs = &models.WhoIsInfo{
+				DomainName:               requestParam,
+				RegistrationOrganization: urlAttrib.Whois,
+				Created:                  fmt.Sprintf("%d", urlAttrib.WhoisDate),
+			}
+		}
+	}
+
+	return out, nil
 }
 
 // ScanFile
