@@ -135,7 +135,7 @@ func run() error {
 	scanPostgresRepo := scanPostgresRepo.New(postgresClient, logger)
 	scanRedisRepo := scanRedisRepo.New(redisPool, logger)
 	scanUsecase := scanUsecase.New(scanPostgresRepo, scanRedisRepo, logger)
-	scan := scanHandlers.New(cfg.Gateway.KasperskyAPIKey, cfg.Gateway.IamToken, cfg.Gateway.FolderID, scanUsecase, sessionManager, logger)
+	scan := scanHandlers.New(cfg.Gateway.KasperskyAPIKey, cfg.Gateway.VirusTotalAPIKey, cfg.Gateway.IamToken, cfg.Gateway.FolderID, scanUsecase, sessionManager, logger)
 
 	//=================================================================//
 
