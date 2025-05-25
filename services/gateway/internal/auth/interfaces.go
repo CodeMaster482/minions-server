@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+
 	"github.com/CodeMaster482/minions-server/common"
 )
 

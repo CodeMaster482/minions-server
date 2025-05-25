@@ -3,10 +3,11 @@ package usecase
 import (
 	"context"
 	"errors"
+	"log/slog"
+
 	"github.com/CodeMaster482/minions-server/common"
 	"github.com/CodeMaster482/minions-server/services/gateway/internal/auth"
 	"golang.org/x/crypto/bcrypt"
-	"log/slog"
 )
 
 type Usecase struct {

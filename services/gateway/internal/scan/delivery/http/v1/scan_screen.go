@@ -1,4 +1,4 @@
-package http
+package v1
 
 import (
 	"bytes"
@@ -59,19 +59,19 @@ func (h *Handler) ScanScreen(w http.ResponseWriter, r *http.Request) {
 
 	if err := r.ParseMultipartForm(MaxUploadSize); err != nil {
 		if err.Error() == "http: request body too large" {
-			common.RespondWithError(w, http.StatusRequestEntityTooLarge, ScanFilePayloadTooLargeMsg)
-			logger.Error(ScanFilePayloadTooLargeMsg, slog.Any("error", err))
+			common.RespondWithError(w, http.StatusRequestEntityTooLarge, models.ScanFilePayloadTooLargeMsg)
+			logger.Error(models.ScanFilePayloadTooLargeMsg, slog.Any("error", err))
 			return
 		}
-		common.RespondWithError(w, http.StatusBadRequest, ScanFileBadRequestMsg)
-		logger.Error(ScanFileBadRequestMsg, slog.Any("error", err))
+		common.RespondWithError(w, http.StatusBadRequest, models.ScanFileBadRequestMsg)
+		logger.Error(models.ScanFileBadRequestMsg, slog.Any("error", err))
 		return
 	}
 
 	file, header, err := r.FormFile("file")
 	if err != nil {
-		common.RespondWithError(w, http.StatusBadRequest, ScanFileBadRequestMsg)
-		logger.Error(ScanFileBadRequestMsg, slog.Any("error", err))
+		common.RespondWithError(w, http.StatusBadRequest, models.ScanFileBadRequestMsg)
+		logger.Error(models.ScanFileBadRequestMsg, slog.Any("error", err))
 		return
 	}
 	defer file.Close()
@@ -80,15 +80,15 @@ func (h *Handler) ScanScreen(w http.ResponseWriter, r *http.Request) {
 	logger.Info("Received file for scanning", slog.String("filename", filename))
 
 	if header.Size > MaxUploadSize {
-		common.RespondWithError(w, http.StatusRequestEntityTooLarge, ScanFilePayloadTooLargeMsg)
-		logger.Error(ScanFilePayloadTooLargeMsg, slog.Int64("file_size", header.Size))
+		common.RespondWithError(w, http.StatusRequestEntityTooLarge, models.ScanFilePayloadTooLargeMsg)
+		logger.Error(models.ScanFilePayloadTooLargeMsg, slog.Int64("file_size", header.Size))
 		return
 	}
 
 	fileContent, err := io.ReadAll(file)
 	if err != nil {
-		common.RespondWithError(w, http.StatusInternalServerError, ScanFileInternalServerErrorMsg)
-		logger.Error(ScanFileInternalServerErrorMsg, slog.Any("error", err))
+		common.RespondWithError(w, http.StatusInternalServerError, models.ScanFileInternalServerErrorMsg)
+		logger.Error(models.ScanFileInternalServerErrorMsg, slog.Any("error", err))
 		return
 	}
 
@@ -111,8 +111,8 @@ func (h *Handler) ScanScreen(w http.ResponseWriter, r *http.Request) {
 	apiURL := "https://ocr.api.cloud.yandex.net/ocr/v1/recognizeText"
 	apiReq, err := http.NewRequestWithContext(ctx, "POST", apiURL, bytes.NewReader(payload))
 	if err != nil {
-		common.RespondWithError(w, http.StatusInternalServerError, ScanFileInternalServerErrorMsg)
-		logger.Error(ScanFileInternalServerErrorMsg, slog.Any("error", err))
+		common.RespondWithError(w, http.StatusInternalServerError, models.ScanFileInternalServerErrorMsg)
+		logger.Error(models.ScanFileInternalServerErrorMsg, slog.Any("error", err))
 		return
 	}
 
@@ -124,16 +124,16 @@ func (h *Handler) ScanScreen(w http.ResponseWriter, r *http.Request) {
 	client := &http.Client{}
 	apiResp, err := client.Do(apiReq)
 	if err != nil {
-		common.RespondWithError(w, http.StatusInternalServerError, ScanFileInternalServerErrorMsg)
-		logger.Error(ScanFileInternalServerErrorMsg, slog.Any("error", err))
+		common.RespondWithError(w, http.StatusInternalServerError, models.ScanFileInternalServerErrorMsg)
+		logger.Error(models.ScanFileInternalServerErrorMsg, slog.Any("error", err))
 		return
 	}
 	defer apiResp.Body.Close()
 
 	body, err := io.ReadAll(apiResp.Body)
 	if err != nil {
-		common.RespondWithError(w, http.StatusInternalServerError, ScanFileInternalServerErrorMsg)
-		logger.Error(ScanFileInternalServerErrorMsg, slog.Any("error", err))
+		common.RespondWithError(w, http.StatusInternalServerError, models.ScanFileInternalServerErrorMsg)
+		logger.Error(models.ScanFileInternalServerErrorMsg, slog.Any("error", err))
 		return
 	}
 
@@ -142,15 +142,15 @@ func (h *Handler) ScanScreen(w http.ResponseWriter, r *http.Request) {
 	logger.Debug("Yandex response", slog.Any("res", ocrResponse))
 
 	if err != nil {
-		common.RespondWithError(w, http.StatusInternalServerError, ScanFileInternalServerErrorMsg)
-		logger.Error(ScanFileInternalServerErrorMsg, slog.Any("error", err))
+		common.RespondWithError(w, http.StatusInternalServerError, models.ScanFileInternalServerErrorMsg)
+		logger.Error(models.ScanFileInternalServerErrorMsg, slog.Any("error", err))
 		return
 	}
 
 	iocs, err := h.usecase.GetTextOCRResponse(ocrResponse)
 	if err != nil {
 		common.RespondWithError(w, http.StatusNotFound, models.ScanScreenNotFoundIOC)
-		logger.Error(ScanFileInternalServerErrorMsg, slog.Any("error", err))
+		logger.Error(models.ScanFileInternalServerErrorMsg, slog.Any("error", err))
 		return
 	}
 

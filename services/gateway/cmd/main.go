@@ -2,10 +2,10 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/alexedwards/scs/v2"
 	"io"
 	"log/slog"
 	"net/http"
@@ -14,39 +14,34 @@ import (
 	"syscall"
 	"time"
 
-	"database/sql"
-
-	"github.com/gorilla/mux"
-	httpSwagger "github.com/swaggo/http-swagger"
-	"gopkg.in/natefinch/lumberjack.v2"
-
 	"github.com/CodeMaster482/minions-server/common"
 	_ "github.com/CodeMaster482/minions-server/docs"
-
-	scanHandlers "github.com/CodeMaster482/minions-server/services/gateway/internal/scan/delivery/http"
-	scanPostgresRepo "github.com/CodeMaster482/minions-server/services/gateway/internal/scan/repo/postgres"
-	scanRedisRepo "github.com/CodeMaster482/minions-server/services/gateway/internal/scan/repo/redis"
-	scanUsecase "github.com/CodeMaster482/minions-server/services/gateway/internal/scan/usecase"
-
 	authHandlers "github.com/CodeMaster482/minions-server/services/gateway/internal/auth/delivery/http"
 	authRepo "github.com/CodeMaster482/minions-server/services/gateway/internal/auth/repo"
 	authUsecase "github.com/CodeMaster482/minions-server/services/gateway/internal/auth/usecase"
-
+	scanHandlers "github.com/CodeMaster482/minions-server/services/gateway/internal/scan/delivery/http/v1"
+	scanHandlersV2 "github.com/CodeMaster482/minions-server/services/gateway/internal/scan/delivery/http/v2"
+	scanPostgresRepo "github.com/CodeMaster482/minions-server/services/gateway/internal/scan/repo/postgres"
+	scanRedisRepo "github.com/CodeMaster482/minions-server/services/gateway/internal/scan/repo/redis"
+	scanUsecase "github.com/CodeMaster482/minions-server/services/gateway/internal/scan/usecase"
 	statisticsHandlers "github.com/CodeMaster482/minions-server/services/gateway/internal/statistics/delivery/http"
 	statisticsRepo "github.com/CodeMaster482/minions-server/services/gateway/internal/statistics/repo"
 	statisticsUsecase "github.com/CodeMaster482/minions-server/services/gateway/internal/statistics/usecase"
-
 	"github.com/CodeMaster482/minions-server/services/gateway/pkg/middleware"
 	"github.com/alexedwards/scs/redisstore"
+	"github.com/alexedwards/scs/v2"
 	"github.com/gomodule/redigo/redis"
+	"github.com/gorilla/mux"
 	_ "github.com/lib/pq"
+	httpSwagger "github.com/swaggo/http-swagger"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 // @title Minions API
 // @description API server for Minions.
 
-// @contact.name Dima
-// @contact.url http://t.me/BelozerovD
+// @contact.name Grigory Kovalenko
+// @contact.url http://t.me/CodeMaster482
 func main() {
 	if err := run(); err != nil {
 		os.Exit(1)
@@ -54,6 +49,16 @@ func main() {
 }
 
 func run() error {
+	// 1. Контекст остановки по сигналам
+	// ctx, cancel := signal.NotifyContext(context.Background(),
+	// 	os.Interrupt, syscall.SIGTERM)
+	// defer cancel()
+
+	// 2. Загрузка конфигурации
+	// cfg, err := LoadConfig("services/gateway/cmd/config.yaml")
+	// if err != nil {
+	//     return fmt.Errorf("load config: %w", err)
+	// }
 	configPath := flag.String("c", "services/gateway/cmd/config.yaml", "Путь к файлу конфигурации")
 	flag.Parse()
 
@@ -135,7 +140,9 @@ func run() error {
 	scanPostgresRepo := scanPostgresRepo.New(postgresClient, logger)
 	scanRedisRepo := scanRedisRepo.New(redisPool, logger)
 	scanUsecase := scanUsecase.New(scanPostgresRepo, scanRedisRepo, logger)
-	scan := scanHandlers.New(cfg.Gateway.KasperskyAPIKey, cfg.Gateway.VirusTotalAPIKey, cfg.Gateway.IamToken, cfg.Gateway.FolderID, scanUsecase, sessionManager, logger)
+
+	scan := scanHandlers.NewService(cfg.Gateway.KasperskyAPIKey, cfg.Gateway.VirusTotalAPIKey, cfg.Gateway.IamToken, cfg.Gateway.FolderID, scanUsecase, sessionManager, logger)
+	scanV2 := scanHandlersV2.NewService(cfg.Gateway.KasperskyAPIKey, cfg.Gateway.VirusTotalAPIKey, cfg.Gateway.IamToken, cfg.Gateway.FolderID, scanUsecase, sessionManager, logger)
 
 	//=================================================================//
 
@@ -197,9 +204,16 @@ func run() error {
 	}
 
 	{
-		r.HandleFunc("/scan/uri", scan.DomainIPUrl).Methods(http.MethodGet, http.MethodOptions)
+		r.HandleFunc("/scan/uri", scan.DomainIPUrlV1).Methods(http.MethodGet, http.MethodOptions)
 		r.HandleFunc("/scan/file", scan.ScanFile).Methods(http.MethodPost, http.MethodOptions)
 		r.HandleFunc("/scan/screen", scan.ScanScreen).Methods(http.MethodPost, http.MethodOptions)
+	}
+
+	{
+		rV2.HandleFunc("/scan/uri", scanV2.DomainIPUrl).Methods(http.MethodGet, http.MethodOptions)
+		rV2.HandleFunc("/check-ip", scanV2.CheckIP).Methods(http.MethodPost, http.MethodOptions)
+		rV2.HandleFunc("/check-url", scanV2.CheckURL).Methods(http.MethodPost, http.MethodOptions)
+		rV2.HandleFunc("/check-domain", scanV2.CheckDomain).Methods(http.MethodPost, http.MethodOptions)
 	}
 
 	r.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

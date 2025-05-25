@@ -412,10 +412,31 @@ definitions:
         example: "2021-01-01T00:00:00Z"
         type: string
     type: object
+  v2.DomainCheckRequest:
+    properties:
+      domain:
+        type: string
+    required:
+    - domain
+    type: object
+  v2.IPCheckRequest:
+    properties:
+      ip:
+        type: string
+    required:
+    - ip
+    type: object
+  v2.URLCheckRequest:
+    properties:
+      url:
+        type: string
+    required:
+    - url
+    type: object
 info:
   contact:
-    name: Dima
-    url: http://t.me/BelozerovD
+    name: Grigory Kovalenko
+    url: http://t.me/CodeMaster482
   description: API server for Minions.
   title: Minions API
 paths:
@@ -598,7 +619,7 @@ paths:
       - application/json
       description: Эндпоинт для проверки веб-адреса, IP или домена и получения объединенного
         ответа с информацией из Kaspersky API.
-      operationId: domain-check
+      operationId: universal-check
       parameters:
       - description: Веб-адрес, IP или домен для проверки
         example: www.example.com
@@ -795,6 +816,162 @@ paths:
       summary: Top 5 red links for this week
       tags:
       - Statistics
+  /api/v2/scan/domain:
+    post:
+      consumes:
+      - application/json
+      description: Эндпоинт для проверки домена и получения объединенного ответа с
+        информацией из Kaspersky и VirusTotal API.
+      operationId: domain-check-v2
+      parameters:
+      - description: Домен для проверки
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/v2.DomainCheckRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Успешная проверка домена
+          schema:
+            $ref: '#/definitions/models.ResponseFromAPI'
+        "400":
+          description: 'Bad Request: Некорректный запрос или неверный формат домена'
+          schema:
+            $ref: '#/definitions/common.ErrorResponse'
+        "404":
+          description: 'Not Found: Результаты поиска не найдены'
+          schema:
+            $ref: '#/definitions/common.ErrorResponse'
+        "405":
+          description: 'Method Not Allowed: Разрешен только POST метод'
+          schema:
+            $ref: '#/definitions/common.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/common.ErrorResponse'
+      summary: Проверка домена через Kaspersky и VirusTotal API
+      tags:
+      - Scan
+  /api/v2/scan/ip:
+    post:
+      consumes:
+      - application/json
+      description: Эндпоинт для проверки IP-адреса и получения объединенного ответа
+        с информацией из Kaspersky и VirusTotal API.
+      operationId: ip-check-v2
+      parameters:
+      - description: IP-адрес для проверки
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/v2.IPCheckRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Успешная проверка IP-адреса
+          schema:
+            $ref: '#/definitions/models.ResponseFromAPI'
+        "400":
+          description: 'Bad Request: Некорректный запрос или неверный формат IP'
+          schema:
+            $ref: '#/definitions/common.ErrorResponse'
+        "404":
+          description: 'Not Found: Результаты поиска не найдены'
+          schema:
+            $ref: '#/definitions/common.ErrorResponse'
+        "405":
+          description: 'Method Not Allowed: Разрешен только POST метод'
+          schema:
+            $ref: '#/definitions/common.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/common.ErrorResponse'
+      summary: Проверка IP-адреса через Kaspersky и VirusTotal API
+      tags:
+      - Scan
+  /api/v2/scan/uri:
+    get:
+      consumes:
+      - application/json
+      description: Эндпоинт для проверки веб-адреса, IP или домена и получения объединенного
+        ответа с информацией из Kaspersky API.
+      operationId: universal-check-v2
+      parameters:
+      - description: Веб-адрес, IP или домен для проверки
+        example: www.example.com
+        in: query
+        name: request
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Успешная проверка. Возвращается объединенный ответ с информацией.
+          schema:
+            $ref: '#/definitions/models.ResponseFromAPI'
+        "400":
+          description: 'Bad Request: Incorrect query.'
+          schema:
+            $ref: '#/definitions/common.ErrorResponse'
+        "404":
+          description: 'Not Found: Lookup results not found.'
+          schema:
+            $ref: '#/definitions/common.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/common.ErrorResponse'
+      summary: Проверка веб-адреса, IP или домена через Kaspersky API
+      tags:
+      - Scan
+  /api/v2/scan/url:
+    post:
+      consumes:
+      - application/json
+      description: Эндпоинт для проверки URL и получения объединенного ответа с информацией
+        из Kaspersky и VirusTotal API.
+      operationId: url-check-v2
+      parameters:
+      - description: URL для проверки
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/v2.URLCheckRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Успешная проверка URL
+          schema:
+            $ref: '#/definitions/models.ResponseFromAPI'
+        "400":
+          description: 'Bad Request: Некорректный запрос или неверный формат URL'
+          schema:
+            $ref: '#/definitions/common.ErrorResponse'
+        "404":
+          description: 'Not Found: Результаты поиска не найдены'
+          schema:
+            $ref: '#/definitions/common.ErrorResponse'
+        "405":
+          description: 'Method Not Allowed: Разрешен только POST метод'
+          schema:
+            $ref: '#/definitions/common.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/common.ErrorResponse'
+      summary: Проверка URL через Kaspersky и VirusTotal API
+      tags:
+      - Scan
   /api/v2/stat/top-green-links-all-time:
     get:
       description: Returns a slice stat of the top 5 green (safe) links accessed all

@@ -15,9 +15,8 @@ import (
 	"strings"
 
 	"github.com/CodeMaster482/minions-server/services/gateway/internal/scan"
-	"mvdan.cc/xurls"
-
 	"github.com/CodeMaster482/minions-server/services/gateway/internal/scan/models"
+	"mvdan.cc/xurls"
 )
 
 var (
